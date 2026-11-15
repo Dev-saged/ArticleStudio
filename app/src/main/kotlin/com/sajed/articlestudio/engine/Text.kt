@@ -58,3 +58,20 @@ fun iso(s: String) = s.replace(ISO) { "⁦${it.value}⁩" }
 fun bdi(s: String) = s.replace(BDI) { "<bdi>${it.value}</bdi>" }
 fun pad(n: Int, l: Int = 2) = n.toString().padStart(l, '0')
 fun stripTags(h: String) = h.replace(Regex("<[^>]+>"), " ")
+
+private val DIAC = Regex("[\\u064B-\\u065F\\u0670\\u0640]")
+fun normAr(s: String): String = s.lowercase().replace(DIAC, "").replace(Regex("[أإآٱ]"), "ا").replace('ى', 'ي').replace('ة', 'ه')
+private val STOP = ("في من على الى إلى عن مع ما هل كيف لماذا هذا هذه ذلك بين بعد قبل امام أمام ضد ثم او أو كل هو هي التي الذي قد لن لم ان أن إن حتى خلال عند ماذا متى اين أين اهم أهم اكثر أكثر").split(" ").map { normAr(it) }.toSet()
+
+/** كلمات العنوان المميِّزة بعد التطبيع وإزالة أدوات التعريف والكلمات الشائعة. */
+fun titleTokens(s: String): Set<String> = normAr(s).replace(Regex("[^\\p{L}\\p{N}\\s]"), " ").split(Regex("\\s+"))
+    .map { w -> w.removePrefix("وال").removePrefix("بال").removePrefix("لل").removePrefix("ال") }
+    .filter { it.length >= 2 && it !in STOP }.toSet()
+
+/** تشابه عنوانين: ثلاث كلمات مشتركة على الأقل مع تغطية كبيرة للأقصر أو تطابق عام. */
+fun similarTitles(a: String, b: String): Boolean {
+    val x = titleTokens(a); val y = titleTokens(b)
+    if (x.size < 3 || y.size < 3) return normAr(a).trim() == normAr(b).trim()
+    val c = x.intersect(y).size
+    return c >= 3 && (c.toDouble() / minOf(x.size, y.size) >= 0.8 || c.toDouble() / x.union(y).size >= 0.6)
+}

@@ -141,6 +141,11 @@ class ProviderEngine @Inject constructor(
                     by(good((j as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull })
                         .filter { Regex("openai|deepseek|mistral|llama|qwen|gemini|gpt|glm", RegexOption.IGNORE_CASE).containsMatchIn(it) && !Regex("search|roblox|unity|midijourney|evil|rtist|fast", RegexOption.IGNORE_CASE).containsMatchIn(it) }).take(3)
                 }.getOrDefault(emptyList()).ifEmpty { listOf("openai", "mistral") }
+                "sambanova" -> by(good(ids(get("$base/models", emptyMap())))).take(3)
+                "nvidia" -> by(good(ids(get("$base/models", hd))).filter { !Regex("coder|code|safety|reward|parse|embed|mixtral|-\\d{1,2}b\\b|\\b\\d{1,2}b-|nano|bolt|guard|v0\\.", RegexOption.IGNORE_CASE).containsMatchIn(it) }).take(4)
+                "zai" -> runCatching { good(ids(get("$base/models", hd))).filter { it.contains("flash", true) }.take(2) }.getOrDefault(emptyList())
+                "longcat" -> listOf("LongCat-Flash-Chat")
+                "llm7" -> by(good(ids(get("$base/models", emptyMap()))).filter { !Regex("code|pro|:").containsMatchIn(it) }).take(3)
                 "zen" -> by(good(ids(get("$base/models", emptyMap()))).filter { it.endsWith("-free") }).take(3)
                 else -> emptyList()
             }
@@ -149,6 +154,10 @@ class ProviderEngine @Inject constructor(
             "openrouter" -> listOf("deepseek/deepseek-chat-v3.1:free", "openai/gpt-oss-20b:free")
             "groq" -> listOf("openai/gpt-oss-120b", "llama-3.3-70b-versatile")
             "cerebras" -> listOf("gpt-oss-120b", "llama-3.3-70b")
+            "sambanova" -> listOf("gpt-oss-120b", "Meta-Llama-3.3-70B-Instruct")
+            "nvidia" -> listOf("mistralai/mistral-large", "nvidia/nemotron-3-super-120b-a12b")
+            "zai" -> listOf("glm-4.7-flash", "glm-4.5-flash")
+            "llm7" -> listOf("glm-5.3-flash", "deepseek-v4.1-flash")
             else -> emptyList()
         }
         models[s.id] = now() to v

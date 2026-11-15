@@ -143,6 +143,7 @@ fun ArticlesScreen(vm: ArticlesViewModel = hiltViewModel()) {
                         if (a.status != "exported") IconBtn(Icons.Refresh, "إعادة توليد", { vm.regenerate(a.id) })
                         IconBtn(Icons.Trash, "حذف", { confirmDelete = a.id })
                     }
+                    if (a.status != "failed" && a.error.isNotBlank()) Text("تنبيه: ${a.error}", style = MaterialTheme.typography.labelMedium, color = c.goldText)
                 }
             }
         }

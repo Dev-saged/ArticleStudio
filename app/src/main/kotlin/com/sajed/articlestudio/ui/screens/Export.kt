@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -93,7 +95,10 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
     }
 
     fun export() { if (persist() && !_busy.value) viewModelScope.launch { _busy.value = true; mgr.export(); _busy.value = false } }
-    fun share(c: Context) { mgr.shareIntent()?.let { runCatching { c.startActivity(it) } } }
+    val files: StateFlow<List<com.sajed.articlestudio.engine.ExportFile>> = mgr.files
+    fun open(c: Context, name: String, view: Boolean) { mgr.shareIntent(name, view)?.let { runCatching { c.startActivity(it) } } }
+    fun delete(name: String) = mgr.delete(name)
+    fun dismiss() = mgr.clearResult()
 }
 
 @Composable
@@ -108,35 +113,83 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
     val ctx = LocalContext.current
     var settings by remember { mutableStateOf(false) }
 
+    val files by vm.files.collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf<String?>(null) }
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item("t") { Text("التصدير", style = MaterialTheme.typography.headlineLarge, color = c.text) }
         item("k") {
             Panel(Modifier.fillMaxWidth()) {
-                Column {
-                    Text(ready.toString().ltr(), style = NumberStyle, color = c.goldText)
-                    Text("مقالات جاهزة للتصدير", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (ready > 0) {
+                        Text(ready.toString().ltr(), style = NumberStyle, color = c.goldText)
+                        Text(if (ready == 1) "مقال جاهز للتصدير" else "مقالات جاهزة للتصدير", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    } else {
+                        Text("لا توجد مقالات جديدة للتصدير", style = MaterialTheme.typography.titleMedium, color = c.text)
+                        Text(if (files.isEmpty()) "ولّد مقالات من الرئيسية وتظهر هنا جاهزة." else "كل ما ولّدته صُدّر سابقاً، وملفاتك محفوظة بالأسفل.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    }
                 }
             }
         }
-        if (ready == 0 && ui.steps.isEmpty()) item("empty") { EmptyState("لا شيء للتصدير", "عند اكتمال مقالات تظهر هنا حزمة XML جاهزة لاستيراد بلوجر.") }
         item("go") {
             PrimaryButton(if (ui.running) "جارٍ التصدير…" else "صدّر XML الآن", Icons.Export, vm::export, enabled = ready > 0 && !ui.running && !busy)
         }
-        if (ui.steps.isNotEmpty()) items(ui.steps.size, key = { "s$it" }) { i ->
-            val s = ui.steps[i]
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                androidx.compose.material3.Icon(if (s.state == 'x') Icons.Close else if (s.state == 'd') Icons.Check else Icons.Clock, null, Modifier.size(20.dp), tint = if (s.state == 'x') c.red else if (s.state == 'd') c.ok else c.goldText)
-                Text(s.text, color = if (s.state == 'x') c.red else c.text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        if (ui.running) item("prog") {
+            val frac = if (ui.total > 0) ui.done.toFloat() / ui.total else 0f
+            val anim by androidx.compose.animation.core.animateFloatAsState(frac, androidx.compose.animation.core.tween(350), label = "p")
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(ui.stage, style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f))
+                        Text("${ui.stageIdx} / ${ui.stageCount}".ltr(), style = MaterialTheme.typography.labelMedium, color = c.muted)
+                    }
+                    if (ui.total > 0) androidx.compose.material3.LinearProgressIndicator(progress = { anim }, Modifier.fillMaxWidth().height(8.dp), color = c.goldText, trackColor = c.line)
+                    else androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().height(8.dp), color = c.goldText, trackColor = c.line)
+                    if (ui.total > 0) Text("${ui.done} / ${ui.total}".ltr(), style = MaterialTheme.typography.labelMedium, color = c.muted)
+                }
             }
         }
-        if (ui.lastName != null && !ui.running) item("share") {
+        ui.error?.let { err -> item("err") {
             Panel(Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("آخر ملف: ${ui.lastName}".ltr(), style = MaterialTheme.typography.bodyMedium, color = c.text)
-                    Text("محفوظ أيضاً في التنزيلات ← ArticleStudio. في بلوجر: الإعدادات ← استيراد المحتوى.", style = MaterialTheme.typography.bodySmall, color = c.muted)
-                    Row(Modifier.clickable { vm.share(ctx) }.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.Icon(Icons.Export, null, tint = c.goldText)
-                        Text("مشاركة / فتح الملف", style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    androidx.compose.material3.Icon(Icons.Warning, null, Modifier.size(22.dp), tint = c.red)
+                    Text(err, color = c.red, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                }
+            }
+        } }
+        ui.summary?.let { sm -> item("sum") {
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        androidx.compose.material3.Icon(Icons.Check, null, Modifier.size(24.dp), tint = c.ok)
+                        Text("تم تصدير ${com.sajed.articlestudio.engine.ExportNaming.countPhrase(sm.articles)}", style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f))
+                        androidx.compose.material3.Icon(Icons.Close, "إخفاء", Modifier.size(44.dp).clickable { vm.dismiss() }.padding(12.dp), tint = c.muted)
+                    }
+                    Text(if (sm.pushed) "رُفعت ${sm.images} صورة إلى GitHub وبُني ملف XML." else "جُمّعت ${sm.images} صورة في ZIP ضمن التنزيلات.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    sm.titles.take(5).forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = c.text, maxLines = 2) }
+                    if (sm.titles.size > 5) Text("و${sm.titles.size - 5} أخرى", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    Text(sm.name.ltr(), style = MaterialTheme.typography.labelMedium, color = c.goldText)
+                    Text("حُفظ داخل التطبيق وفي التنزيلات ← ArticleStudio. في بلوجر: الإعدادات ← استيراد المحتوى.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FileAction("مشاركة", Icons.Export) { vm.open(ctx, sm.name, false) }
+                        FileAction("فتح", Icons.Document) { vm.open(ctx, sm.name, true) }
+                    }
+                }
+            }
+        } }
+        if (files.isNotEmpty()) {
+            item("fh") { Text("ملفاتي المصدّرة (${files.size})".replace(Regex("\\d+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.titleMedium, color = c.text) }
+            items(files.size, key = { "f" + files[it].name }) { i ->
+                val f = files[i]
+                Panel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(f.name.removeSuffix(".xml"), style = MaterialTheme.typography.bodyMedium, color = c.text, maxLines = 2)
+                        Text("${java.text.SimpleDateFormat("dd-MM-yyyy HH:mm", java.util.Locale.US).format(f.modified)} · ${f.size / 1024} KB".ltr(), style = MaterialTheme.typography.labelSmall, color = c.muted)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FileAction("مشاركة", Icons.Export) { vm.open(ctx, f.name, false) }
+                            FileAction("فتح", Icons.Document) { vm.open(ctx, f.name, true) }
+                            FileAction(if (confirm == f.name) "تأكيد الحذف" else "حذف", Icons.Trash, danger = true) { if (confirm == f.name) { vm.delete(f.name); confirm = null } else confirm = f.name }
+                        }
                     }
                 }
             }
@@ -163,5 +216,15 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FileAction(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, danger: Boolean = false, onClick: () -> Unit) {
+    val c = AppTheme.colors
+    val tint = if (danger) c.red else c.goldText
+    Row(Modifier.heightIn(min = 44.dp).clickable(onClick = onClick).padding(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(icon, null, Modifier.size(18.dp), tint = tint)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = tint)
     }
 }

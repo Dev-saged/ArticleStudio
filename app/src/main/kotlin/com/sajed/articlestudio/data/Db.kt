@@ -21,6 +21,9 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE status = 'ready' ORDER BY job_id ASC, idx ASC")
     suspend fun ready(): List<ArticleEntity>
 
+    @Query("SELECT title FROM articles WHERE status != 'failed'")
+    suspend fun titles(): List<String>
+
     @Query("SELECT COUNT(*) FROM articles WHERE status = :status")
     suspend fun countByStatus(status: String): Int
 

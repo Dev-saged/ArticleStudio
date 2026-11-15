@@ -23,7 +23,6 @@ import kotlin.random.Random
 enum class PlanMode { News, Evergreen, Mine }
 
 private val MOTIFS = listOf("trophy", "pitch", "screen", "shield", "stars", "duel", "flag", "stadium", "board", "ball", "fox", "pulse")
-private val LEAGUES = listOf("eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "uefa.champions", "ksa.1", "fifa.world")
 private val EVERGREEN = listOf(
     "قاعدة التسلل وكيف تُحتسب", "تقنية الفار: كيف تعمل ومتى يتدخل", "الأهداف المتوقعة xG: دليل المبتدئ", "الضغط العالي في كرة القدم",
     "الفرق بين 4-3-3 و4-4-2", "الكرات الثابتة: كيف تصنع الفرق الأهداف", "دور حارس المرمى الحديث", "اللعب المالي النظيف: ما هو؟",
@@ -40,6 +39,8 @@ private fun rules() = """أنت محرر رياضي عربي محترف في م�
 - لا تخترع أي رقم أو نتيجة أو تاريخ أو اقتباس أو اسم لاعب أو مدرب. استخدم فقط ما ورد في «المادة المرجعية» إن وُجدت. وإن لم توجد فاكتب شرحاً عاماً دائماً (قواعد، مفاهيم، تاريخ معروف جداً) بلا أرقام قابلة للتغير.
 - ابدأ كل قسم بجملة تجيب مباشرة عن عنوانه، ثم فصّل بأمثلة وتشبيهات ومقارنات وفوائد عملية للمشجع.
 - ممنوع الحشو والعبارات المستهلكة مثل: «في عالم كرة القدم»، «لا شك أن»، «يعد من أبرز». لا تكرر الفكرة بصياغة أخرى.
+- حين تتعدد المواد المرجعية فاجمعها في سرد واحد متماسك، وقارن بين رواياتها، وإذا تعارضت فاذكر التعارض صراحةً ولا تختر رواية بصمت.
+- ممنوع نقل جمل المصادر أو ترجمتها حرفياً. أعد صياغة كل شيء بأسلوبك، وأضف سياقاً وقراءة فنية وزاوية خاصة بالمدونة بدل الاكتفاء بسرد الخبر.
 - فقرات قصيرة (3 إلى 4 جمل). لا تستخدم Markdown ولا HTML. النقاط تبدأ بـ «- » في سطر مستقل."""
 
 private fun sysMeta() = """${rules()}
@@ -78,39 +79,11 @@ private val LISTMARK = Regex("^([-*•]|\\d+[.)])\\s+")
 @Singleton
 class Generator @Inject constructor(
     private val engine: ProviderEngine, private val http: OkHttpClient,
-    private val bus: RunBus, private val history: HistoryStore, private val data: StudioData,
+    private val bus: RunBus, private val history: HistoryStore, private val data: StudioData, private val news: NewsSources,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private suspend fun fetchNews(): List<Ref> {
-        val cutoff = System.currentTimeMillis() - 16L * 864_00000
-        val client = http.newBuilder().callTimeout(12, TimeUnit.SECONDS).build()
-        val all = coroutineScope {
-            LEAGUES.map { lg ->
-                async {
-                    runCatching {
-                        val rq = Request.Builder().url("https://site.api.espn.com/apis/site/v2/sports/soccer/$lg/news?limit=8").build()
-                        client.newCall(rq).await().use { r ->
-                            if (!r.isSuccessful) return@runCatching emptyList<Ref>()
-                            val arts = json.parseToJsonElement(r.body?.string().orEmpty()).jsonObject["articles"] as? JsonArray ?: return@runCatching emptyList()
-                            arts.mapNotNull { e ->
-                                val a = e as? JsonObject ?: return@mapNotNull null
-                                val ts = (a["published"] ?: a["lastModified"])?.jsonPrimitive?.contentOrNull?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: return@mapNotNull null
-                                if (ts <= cutoff) return@mapNotNull null
-                                val url = a["links"]?.jsonObject?.get("web")?.jsonObject?.get("href")?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                                val h = a["headline"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                                Ref(h, url, a["description"]?.jsonPrimitive?.contentOrNull.orEmpty(), ts)
-                            }
-                        }
-                    }.getOrDefault(emptyList())
-                }
-            }.awaitAll().flatten()
-        }
-        val seen = HashSet<String>()
-        return all.filter { seen.add(it.h.lowercase()) }.sortedByDescending { it.t }.take(36)
-    }
-
-    private fun parsePlan(txt: String, news: List<Ref>, n: Int): List<Topic> {
+    private fun parsePlan(txt: String, news: List<Ref>, n: Int, known: List<String>): List<Topic> {
         val seen = HashSet<String>()
         val out = ArrayList<Topic>()
         for (raw in txt.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE), "").lines()) {
@@ -119,36 +92,40 @@ class Generator @Inject constructor(
             val p = line.split('|').map { it.trim() }
             val topic = p.getOrNull(0).orEmpty()
             if (topic.length < 6) continue
-            val ref = p.getOrNull(3)?.takeIf { it.matches(Regex("\\d+")) }?.toInt()?.let { news.getOrNull(it) }
-            val key = ref?.url ?: topic
+            val refs = Regex("\\d+").findAll(p.getOrNull(3).orEmpty()).mapNotNull { news.getOrNull(it.value.toInt()) }.distinct().take(3).toList()
+            val key = refs.firstOrNull()?.url ?: topic
             if (!seen.add(key)) continue
-            out += Topic(clamp(topic, 120), clamp(p.getOrNull(1), 200), p.getOrNull(2).orEmpty().split(Regex("[،,]")).map { clamp(it, 24) }.filter { it.isNotEmpty() }.take(3), ref)
+            if (known.any { similarTitles(topic, it) } || out.any { similarTitles(topic, it.topic) }) continue
+            out += Topic(clamp(topic, 120), clamp(p.getOrNull(1), 200), p.getOrNull(2).orEmpty().split(Regex("[،,]")).map { clamp(it, 24) }.filter { it.isNotEmpty() }.take(3), refs.firstOrNull(), refs)
         }
         return out.take(n)
     }
 
-    suspend fun plan(n: Int, mode: PlanMode, custom: String): List<Topic> {
-        val avoid = (data.seed + history.load().topics).takeLast(120)
+    suspend fun plan(n: Int, mode: PlanMode, custom: String, known: List<String> = emptyList()): List<Topic> {
+        val knownAll = (known + data.seed + history.load().topics).distinct()
+        val avoid = knownAll.takeLast(120)
         if (mode == PlanMode.Mine) {
             val l = custom.lines().map { it.trim() }.filter { it.length > 5 }.take(n)
             if (l.isEmpty()) throw IllegalArgumentException("اكتب موضوعاً واحداً على الأقل في كل سطر")
+            l.filter { t -> knownAll.any { similarTitles(t, it) } }.forEach { bus.log("قريب من مقال سابق: ${clamp(it, 40)}", "w") }
             return l.map { Topic(it) }
         }
         var news = emptyList<Ref>()
         if (mode == PlanMode.News) {
-            news = fetchNews()
-            bus.log(if (news.isNotEmpty()) "جُلب ${news.size} خبراً حديثاً من ESPN" else "تعذّر جلب الأخبار، سنكتب شروحات دائمة", if (news.isNotEmpty()) "" else "w")
+            news = this.news.fetch(history.load().urls.toSet()).take(56)
+            val srcs = news.map { it.s }.distinct().size
+            bus.log(if (news.isNotEmpty()) "جُلب ${news.size} خبراً من $srcs مصادر" else "تعذّر جلب الأخبار، سنكتب شروحات دائمة", if (news.isNotEmpty()) "" else "w")
         }
         val useNews = news.size >= 3
-        val sys = "أنت رئيس تحرير مدونة رياضية عربية. أعد قائمة فقط بلا مقدمة ولا شرح، كل موضوع في سطر واحد بهذه الصيغة بالضبط:\nعنوان الموضوع بالعربية | زاوية المعالجة في جملة | تصنيف1، تصنيف2 | رقم الخبر أو -"
+        val sys = "أنت رئيس تحرير مدونة رياضية عربية. أعد قائمة فقط بلا مقدمة ولا شرح، كل موضوع في سطر واحد بهذه الصيغة بالضبط:\nعنوان الموضوع بالعربية | زاوية المعالجة في جملة | تصنيف1، تصنيف2 | أرقام الأخبار المرجعية (1 إلى 3 مفصولة بفواصل) أو -"
         val usr = "المطلوب $n مواضيع متنوعة ومختلفة تماماً.\n" + (if (useNews)
-            "اختر المواضيع من الأخبار الحديثة التالية (آخر خانة = رقم الخبر، ولا تكرر خبراً). يجوز أن يكون ربعها شروحاً دائمة وآخر خانتها -.\n" + news.mapIndexed { i, x -> "$i. ${x.h} — ${clamp(x.d, 140)}" }.joinToString("\n")
+            "اختر المواضيع من الأخبار الحديثة التالية. الخانة الأخيرة = رقم خبر أو عدة أرقام لأخبار تتناول القصة نفسها من مصادر مختلفة (الدمج يرفع جودة المقال)، ولا تكرر قصة. خصّص ثلث المواضيع على الأقل لكرة القدم العربية (الدوري السعودي والمصري والمنتخبات العربية واللاعبون العرب) متى توفرت أخبارها. يجوز أن يكون ربعها شروحاً دائمة وآخر خانتها -.\n" + news.mapIndexed { i, x -> "$i. [${x.s}] ${x.h} — ${clamp(x.d, 120)}" }.joinToString("\n")
         else "اجعلها شروحاً وتحليلات دائمة لا ترتبط بنتيجة أو خبر محدد (قواعد، تكتيك، مفاهيم، أدلة للمشجع)، وآخر خانة دائماً -.") +
             "\nتجنب هذه العناوين المنشورة سابقاً:\n" + avoid.take(60).joinToString(" | ")
         try {
             var plan = emptyList<Topic>()
             val r = engine.chat(listOf(ChatMessage("system", sys), ChatMessage("user", usr)), ChatOpts(temp = 0.8, max = 2500, validate = { t ->
-                plan = parsePlan(t, if (useNews) news else emptyList(), n)
+                plan = parsePlan(t, if (useNews) news else emptyList(), n, knownAll)
                 if (plan.size < minOf(3, n)) throw IllegalStateException("خطة قصيرة")
             }))
             bus.log("الخطة من ${r.provider}", "o")
@@ -157,10 +134,9 @@ class Generator @Inject constructor(
             if (e is CancellationException) throw e
             bus.log("تعذّر التخطيط الذكي، نستخدم خطة احتياطية", "w")
         }
-        val past = history.load().topics
         val l = ArrayList<Topic>()
-        if (useNews) news.take(Math.ceil(n * .6).toInt()).forEach { l += Topic(it.h, labels = listOf("أخبار"), ref = it) }
-        for (t in EVERGREEN) { if (l.size >= n) break; if (t !in past && l.none { it.topic == t }) l += Topic(t, labels = listOf("شروحات")) }
+        if (useNews) news.take(Math.ceil(n * .6).toInt()).forEach { l += Topic(it.h, labels = listOf("أخبار"), ref = it, refs = listOf(it)) }
+        for (t in EVERGREEN) { if (l.size >= n) break; if (knownAll.none { similarTitles(t, it) } && l.none { it.topic == t }) l += Topic(t, labels = listOf("شروحات")) }
         return l.take(n)
     }
 
@@ -208,8 +184,11 @@ class Generator @Inject constructor(
     }.filter { wc(it.body) >= 70 }
 
     suspend fun article(t: Topic): Article {
-        val ref = if (t.ref != null)
-            "\nالمادة المرجعية (الوحيدة المسموح بالاستناد إليها للوقائع):\nالعنوان: ${t.ref.h}\nالتفصيل: ${t.ref.d.ifEmpty { "—" }}\nالتاريخ: ${Instant.ofEpochMilli(t.ref.t).toString().take(10)}"
+        val refs = t.all
+        val ref = if (refs.isNotEmpty())
+            "\nالمواد المرجعية (الوحيدة المسموح بالاستناد إليها للوقائع):" + refs.mapIndexed { i, r ->
+                "\n[${i + 1}] المصدر: ${r.s.ifEmpty { "—" }}\nالعنوان: ${r.h}\nالتفصيل: ${r.d.ifEmpty { "—" }}\nالتاريخ: ${Instant.ofEpochMilli(r.t).toString().take(10)}"
+            }.joinToString("\n")
         else "\nلا توجد مادة مرجعية: اكتب شرحاً عاماً دائماً دون أرقام أو وقائع حديثة."
         val base = "الموضوع: ${t.topic}" + (if (t.angle.isNotEmpty()) "\nالزاوية: ${t.angle}" else "") +
             (if (t.labels.isNotEmpty()) "\nتصنيفات مقترحة: ${t.labels.joinToString("، ")}" else "") + ref
@@ -245,7 +224,7 @@ class Generator @Inject constructor(
         return Article(
             first.title, first.desc.ifEmpty { clamp(first.tldr, 155) }, first.slug, first.labels, first.kicker, first.motif, first.hue,
             first.infotitle, first.facts, first.tldr, toHtml(first.intro), filled, first.faq, toHtml(first.outro),
-            t.ref?.let { Ref(it.h, it.url) }, words, used.joinToString("+"), r1.model, t.topic,
+            refs.firstOrNull()?.let { Ref(it.h, it.url, "", 0, it.s) }, words, used.joinToString("+"), r1.model, t.topic, refs = refs.map { Ref(it.h, it.url, "", 0, it.s) },
         )
     }
 }

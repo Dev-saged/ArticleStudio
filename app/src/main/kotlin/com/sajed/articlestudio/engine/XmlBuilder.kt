@@ -40,7 +40,7 @@ object XmlBuilder {
         p += "<h2>أسئلة شائعة</h2>" + a.faq.joinToString("") { "<h3>${esc(it.q)}</h3><p>${esc(it.a)}</p>" }
         p += "<h2>الخلاصة</h2>" + a.outro
         val d = SimpleDateFormat("d MMMM yyyy", Locale.forLanguageTag("ar-u-nu-latn")).format(Date())
-        if (a.ref != null) p += "<h2>المصادر</h2><ul><li><a href=\"${esc(a.ref.url)}\" rel=\"noopener nofollow\" target=\"_blank\">ESPN: ${esc(a.ref.h)}</a></li></ul><p><em>آخر مراجعة للمعلومات: ${esc(d)}. الأرقام الجارية تتغير مع كل جولة.</em></p>"
+        if (a.sources.isNotEmpty()) p += "<h2>المصادر</h2><ul>" + a.sources.joinToString("") { r -> "<li><a href=\"${esc(r.url)}\" rel=\"noopener nofollow\" target=\"_blank\">${esc(r.s.ifEmpty { "المصدر" })}: ${esc(r.h)}</a></li>" } + "</ul><p><em>آخر مراجعة للمعلومات: ${esc(d)}. الأرقام الجارية تتغير مع كل جولة.</em></p>"
         else p += "<p><em>شرح عام يستند إلى معرفة متداولة في كرة القدم، والأرقام المحددة قابلة للتحديث. آخر مراجعة: ${esc(d)}.</em></p>"
         val rel = list.filter { it !== a }.map { x -> x to x.labels.count { it in a.labels } }.sortedByDescending { it.second }.take(3)
         if (rel.isNotEmpty()) p += "<h2>اقرأ أيضاً</h2><ul>" + rel.joinToString("") { (x, _) -> "<li><a href=\"/$ym/${x.finalSlug}.html\">${esc(x.title)}</a></li>" } + "</ul>"

@@ -2,12 +2,6 @@ package com.sajed.articlestudio.data
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +19,11 @@ object ProviderCatalog {
         ProviderSpec("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", true, "https://openrouter.ai/keys", "نماذج :free متعددة بحد يومي صغير."),
         ProviderSpec("cohere", "Cohere", "https://api.cohere.ai/compatibility/v1", true, "https://dashboard.cohere.com/api-keys", "مفتاح Trial مجاني بحدود شهرية."),
         ProviderSpec("pollinations", "Pollinations", "https://text.pollinations.ai/openai", false, "https://pollinations.ai", "بلا مفتاح إطلاقاً. أبطأ، شبكة أمان أخيرة."),
+        ProviderSpec("sambanova", "SambaNova", "https://api.sambanova.ai/v1", true, "https://cloud.sambanova.ai/apis", "سريع بنماذج Llama وgpt-oss. مفتاح مجاني بلا بطاقة."),
+        ProviderSpec("nvidia", "NVIDIA NIM", "https://integrate.api.nvidia.com/v1", true, "https://build.nvidia.com/settings/api-keys", "عشرات النماذج الكبيرة مجاناً. مفتاح من حساب NVIDIA."),
+        ProviderSpec("zai", "Z.ai (GLM)", "https://api.z.ai/api/paas/v4", true, "https://z.ai/manage-apikey/apikey-list", "نماذج GLM Flash مجانية دائماً. جيد بالعربية."),
+        ProviderSpec("longcat", "LongCat", "https://api.longcat.chat/openai/v1", true, "https://longcat.chat/platform/api_keys", "حصة يومية مجانية لنموذج LongCat Flash."),
+        ProviderSpec("llm7", "LLM7", "https://api.llm7.io/v1", false, "https://token.llm7.io", "يعمل بلا مفتاح بحد منخفض؛ المفتاح المجاني يرفعه.", defaultOn = false),
         ProviderSpec("zen", "OpenCode Zen", "https://opencode.ai/zen/v1", true, "https://opencode.ai/auth", "تجريبي: نماذج -free وقد يرفضه الخادم.", defaultOn = false),
         ProviderSpec("custom", "مزود مخصص", "", true, "", "أي خدمة متوافقة مع OpenAI: الرابط الأساسي والنموذج والمفتاح.", defaultOn = false),
     )
@@ -54,20 +53,4 @@ class ProviderStore @Inject constructor(@ApplicationContext c: Context, private 
     }
 
     fun clearKey(id: String) = secrets.put("key.$id", "")
-
-    /** تصدير المفاتيح كنص JSON: مفتاح لكل مزود. */
-    fun exportKeys(): String {
-        val m = ProviderCatalog.all.mapNotNull { s -> key(s.id).takeIf { it.isNotEmpty() }?.let { s.id to JsonPrimitive(it) } }.toMap()
-        return Json { prettyPrint = true }.encodeToString(JsonObject.serializer(), JsonObject(m))
-    }
-
-    fun importKeys(text: String): Int {
-        val o = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return 0
-        var n = 0
-        for (s in ProviderCatalog.all) {
-            val v = o[s.id]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-            if (v.length in 8..300) { secrets.put("key.${s.id}", v); n++ }
-        }
-        return n
-    }
 }
