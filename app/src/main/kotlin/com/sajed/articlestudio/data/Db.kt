@@ -1,5 +1,6 @@
 package com.sajed.articlestudio.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Insert
@@ -10,19 +11,35 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
+/** صف خفيف للقوائم بلا النص الكامل، فلا يُحمَّل JSON كل مقال عند كل تغيير. */
+data class ArticleRow(
+    val id: Long, @ColumnInfo(name = "job_id") val jobId: Long, val idx: Int, val title: String, val labels: String,
+    val status: String, val words: Int, val provider: String, val error: String,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long, val quality: Int, @ColumnInfo(name = "site_id") val siteId: String,
+)
+
 @Dao
 interface ArticleDao {
-    @Query("SELECT * FROM articles ORDER BY job_id DESC, idx ASC")
-    fun observeAll(): Flow<List<ArticleEntity>>
+    @Query("SELECT id, job_id, idx, title, labels, status, words, provider, error, updated_at, quality, site_id FROM articles ORDER BY job_id DESC, idx ASC")
+    fun observeRows(): Flow<List<ArticleRow>>
+
+    @Query("SELECT * FROM articles WHERE status = 'ready' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
+    suspend fun readyFor(siteId: String): List<ArticleEntity>
+
+    @Query("SELECT title FROM articles WHERE status != 'failed' AND site_id = :siteId")
+    suspend fun titlesFor(siteId: String): List<String>
+
+    @Query("SELECT id FROM articles WHERE quality = 0 AND status != 'failed' AND data != ''")
+    suspend fun needQuality(): List<Long>
+
+    @Query("UPDATE articles SET quality = :q WHERE id = :id")
+    suspend fun setQuality(id: Long, q: Int)
+
+    @Query("DELETE FROM articles WHERE site_id = :siteId")
+    suspend fun deleteSite(siteId: String)
 
     @Query("SELECT * FROM articles WHERE id = :id")
     suspend fun byId(id: Long): ArticleEntity?
-
-    @Query("SELECT * FROM articles WHERE status = 'ready' ORDER BY job_id ASC, idx ASC")
-    suspend fun ready(): List<ArticleEntity>
-
-    @Query("SELECT title FROM articles WHERE status != 'failed'")
-    suspend fun titles(): List<String>
 
     @Query("SELECT COUNT(*) FROM articles WHERE status = :status")
     suspend fun countByStatus(status: String): Int
@@ -50,6 +67,9 @@ interface JobDao {
 
     @Query("SELECT * FROM jobs ORDER BY id DESC LIMIT 1")
     fun observeLatest(): Flow<JobEntity?>
+
+    @Query("DELETE FROM jobs WHERE site_id = :siteId")
+    suspend fun deleteSite(siteId: String)
 }
 
 /** ترقيم تراكمي: لا يُعدَّل ترحيل قديم أبداً، تُضاف عناصر جديدة فقط. */
@@ -64,10 +84,17 @@ object Migrations {
             db.execSQL("ALTER TABLE jobs ADD COLUMN failed INTEGER NOT NULL DEFAULT 0")
         }
     }
-    val ALL: Array<Migration> = arrayOf(M1_2)
+    val M2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE articles ADD COLUMN site_id TEXT NOT NULL DEFAULT 'default'")
+            db.execSQL("ALTER TABLE articles ADD COLUMN quality INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE jobs ADD COLUMN site_id TEXT NOT NULL DEFAULT 'default'")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(M1_2, M2_3)
 }
 
-@Database(entities = [ArticleEntity::class, JobEntity::class], version = 2, exportSchema = true)
+@Database(entities = [ArticleEntity::class, JobEntity::class], version = 3, exportSchema = true)
 abstract class AppDb : RoomDatabase() {
     abstract fun articles(): ArticleDao
     abstract fun jobs(): JobDao

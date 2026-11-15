@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.sajed.articlestudio.BrandConfig
 import com.sajed.articlestudio.engine.PlanMode
 import com.sajed.articlestudio.ui.AppChip
 import com.sajed.articlestudio.ui.IconBtn
@@ -94,14 +95,21 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                             if (taps >= 5) { taps = 0; onOpenTest() }
                         },
                     )
-                    Text(BrandConfig.TAGLINE, style = MaterialTheme.typography.bodyMedium, color = c.muted)
+                    Text(s.siteName, style = MaterialTheme.typography.bodyMedium, color = c.muted)
                 }
                 IconBtn(Icons.Document, "سجل العمليات", { logs = true })
                 IconBtn(if (isDark) Icons.Sun else Icons.Moon, "تبديل الوضع الفاتح والغامق", onToggleTheme)
             }
         }
+        if (s.siteCount > 1) item("sites") {
+            val list by vm.sites.sites.collectAsStateWithLifecycle()
+            val act by vm.sites.activeId.collectAsStateWithLifecycle()
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                list.forEach { x -> AppChip(x.name, x.id == act, { if (!s.running) vm.sites.setActive(x.id) }) }
+            }
+        }
         item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }
-        item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
+        if (s.siteNiche == "sport") item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
         item("stats") {
             Row(Modifier.stagger(2), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Stat("مقالات جاهزة", "${s.done}/${s.shownTotal}".ltr(), Modifier.weight(1f))
@@ -135,8 +143,8 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
         item("help") {
             Text(
                 when (s.mode) {
-                    PlanMode.News -> "يجمع أخباراً حديثة من عدة مصادر عربية وعالمية ويدمجها في مقال واحد بصياغة جديدة، مع تركيز على الكرة العربية."
-                    PlanMode.Evergreen -> "شروحات وتحليلات لا تقادم لها: قواعد، تكتيك، أدلة للمشجع."
+                    PlanMode.News -> "يجمع أخباراً حديثة من مصادر موقعك ويدمجها في مقال واحد بصياغة جديدة تناسب قواعده."
+                    PlanMode.Evergreen -> "شروحات وأدلة لا تقادم لها في مجال الموقع."
                     PlanMode.Mine -> "اكتب مواضيعك وسيكتب لكل سطر مقالاً كاملاً."
                 } + if (s.blogCount > 0) " يتجنّب تكرار ${s.blogCount.toString().ltr()} مقالاً منشوراً في مدونتك." else "",
                 style = MaterialTheme.typography.bodySmall, color = c.muted,

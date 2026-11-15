@@ -28,24 +28,30 @@ class BlogIndex @Inject constructor(@ApplicationContext c: Context, private val 
     private val sp = c.getSharedPreferences("blog", Context.MODE_PRIVATE)
     private val ser = ListSerializer(BlogPost.serializer())
     private val json = Json { ignoreUnknownKeys = true }
-    @Volatile private var posts: List<BlogPost> = runCatching { json.decodeFromString(ser, sp.getString("posts", "[]") ?: "[]") }.getOrDefault(emptyList())
+    private val mem = java.util.concurrent.ConcurrentHashMap<String, List<BlogPost>>()
 
-    val count get() = posts.size
-    fun titles() = posts.map { it.title }
-    fun all(): List<BlogPost> = posts
-    fun slugs() = posts.map { it.slug }.toSet()
-    fun similar(title: String): BlogPost? = posts.firstOrNull { similarTitles(title, it.title) }
+    private fun host(url: String) = url.removePrefix("https://").removePrefix("http://").trimEnd('/').lowercase()
+    private fun pk(url: String) = if (host(url) == host(BrandConfig.BLOG_SITE)) "posts" else "posts_" + host(url)
+    private fun tk(url: String) = if (host(url) == host(BrandConfig.BLOG_SITE)) "t" else "t_" + host(url)
+    private fun posts(url: String): List<BlogPost> = mem.getOrPut(pk(url)) { runCatching { json.decodeFromString(ser, sp.getString(pk(url), "[]") ?: "[]") }.getOrDefault(emptyList()) }
 
-    /** يحدّث الفهرس (مرة كل 3 ساعات ما لم يُفرض)؛ عند الفشل يبقى آخر نسخة محفوظة. يعيد عدد المقالات. */
-    suspend fun refresh(force: Boolean = false): Int {
-        if (!force && posts.isNotEmpty() && System.currentTimeMillis() - sp.getLong("t", 0) < 3 * 3_600_000L) return posts.size
+    fun count(url: String) = posts(url).size
+    fun titles(url: String) = posts(url).map { it.title }
+    fun all(url: String): List<BlogPost> = posts(url)
+    fun slugs(url: String) = posts(url).map { it.slug }.toSet()
+    fun similar(url: String, title: String): BlogPost? = posts(url).firstOrNull { similarTitles(title, it.title) }
+
+    /** يحدّث فهرس موقع (مرة كل 3 ساعات ما لم يُفرض)؛ عند الفشل يبقى آخر نسخة محفوظة. يعيد عدد المقالات. */
+    suspend fun refresh(url: String, force: Boolean = false): Int {
+        val cur = posts(url)
+        if (!force && cur.isNotEmpty() && System.currentTimeMillis() - sp.getLong(tk(url), 0) < 3 * 3_600_000L) return cur.size
         val client = http.newBuilder().callTimeout(20, TimeUnit.SECONDS).build()
         val all = ArrayList<BlogPost>()
         try {
             var start = 1
             while (start < 2000) {
-                val url = "${BrandConfig.BLOG_SITE}/feeds/posts/default?alt=json&max-results=150&start-index=$start&orderby=published"
-                val batch = client.newCall(Request.Builder().url(url).build()).await().use { r ->
+                val rq = "${url.trimEnd('/')}/feeds/posts/default?alt=json&max-results=150&start-index=$start&orderby=published"
+                val batch = client.newCall(Request.Builder().url(rq).build()).await().use { r ->
                     if (!r.isSuccessful) return@use null
                     parse(r.body?.string().orEmpty())
                 } ?: break
@@ -55,10 +61,10 @@ class BlogIndex @Inject constructor(@ApplicationContext c: Context, private val 
             }
         } catch (e: Exception) { if (e is CancellationException) throw e }
         if (all.isNotEmpty()) {
-            posts = all
-            sp.edit().putString("posts", json.encodeToString(ser, all)).putLong("t", System.currentTimeMillis()).apply()
+            mem[pk(url)] = all
+            sp.edit().putString(pk(url), json.encodeToString(ser, all)).putLong(tk(url), System.currentTimeMillis()).apply()
         }
-        return posts.size
+        return posts(url).size
     }
 
     internal fun parse(txt: String): List<BlogPost> {

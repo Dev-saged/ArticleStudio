@@ -22,7 +22,6 @@ import kotlin.random.Random
 
 enum class PlanMode { News, Evergreen, Mine }
 
-private val MOTIFS = listOf("trophy", "pitch", "screen", "shield", "stars", "duel", "flag", "stadium", "board", "ball", "fox", "pulse")
 private val EVERGREEN = listOf(
     "قاعدة التسلل وكيف تُحتسب", "تقنية الفار: كيف تعمل ومتى يتدخل", "الأهداف المتوقعة xG: دليل المبتدئ", "الضغط العالي في كرة القدم",
     "الفرق بين 4-3-3 و4-4-2", "الكرات الثابتة: كيف تصنع الفرق الأهداف", "دور حارس المرمى الحديث", "اللعب المالي النظيف: ما هو؟",
@@ -34,24 +33,24 @@ private val EVERGREEN = listOf(
     "قواعد الإصابة والوقت بدل الضائع", "الفرق بين الاحتراف والهواية في الكرة",
 )
 
-private fun rules() = """أنت محرر رياضي عربي محترف في مدونة «${BrandConfig.BLOG_NAME}»، تكتب للقارئ العربي بالفصحى المبسطة بأسلوب بشري مباشر وغني بالمعلومة.
+private fun rules(site: SiteConfig) = """أنت ${site.nicheDef.persona} محترف في مدونة «${site.name}» المتخصصة في ${site.topicLabel}، تكتب للقارئ العربي${if (site.audience.isNotBlank()) " (الجمهور: ${site.audience})" else ""} بالفصحى المبسطة بأسلوب بشري مباشر وغني بالمعلومة، ونبرتك ${site.toneText}.
 قواعد صارمة:
-- لا تخترع أي رقم أو نتيجة أو تاريخ أو اقتباس أو اسم لاعب أو مدرب. استخدم فقط ما ورد في «المادة المرجعية» إن وُجدت. وإن لم توجد فاكتب شرحاً عاماً دائماً (قواعد، مفاهيم، تاريخ معروف جداً) بلا أرقام قابلة للتغير.
-- ابدأ كل قسم بجملة تجيب مباشرة عن عنوانه، ثم فصّل بأمثلة وتشبيهات ومقارنات وفوائد عملية للمشجع.
-- ممنوع الحشو والعبارات المستهلكة مثل: «في عالم كرة القدم»، «لا شك أن»، «يعد من أبرز». لا تكرر الفكرة بصياغة أخرى.
+- لا تخترع أي رقم أو نتيجة أو تاريخ أو اقتباس أو اسم شخص أو جهة. استخدم فقط ما ورد في «المادة المرجعية» إن وُجدت. وإن لم توجد فاكتب شرحاً عاماً دائماً (مفاهيم، خطوات، معلومات ثابتة معروفة) بلا أرقام قابلة للتغير.
+- ابدأ كل قسم بجملة تجيب مباشرة عن عنوانه، ثم فصّل بأمثلة وتشبيهات ومقارنات وفوائد عملية للقارئ.
+- ممنوع الحشو والعبارات المستهلكة مثل: «في عالم»، «لا شك أن»، «يعد من أبرز». لا تكرر الفكرة بصياغة أخرى.
 - حين تتعدد المواد المرجعية فاجمعها في سرد واحد متماسك، وقارن بين رواياتها، وإذا تعارضت فاذكر التعارض صراحةً ولا تختر رواية بصمت.
-- ممنوع نقل جمل المصادر أو ترجمتها حرفياً. أعد صياغة كل شيء بأسلوبك، وأضف سياقاً وقراءة فنية وزاوية خاصة بالمدونة بدل الاكتفاء بسرد الخبر.
-- اكتب لمحركات البحث ومحركات الإجابة التوليدية: جمل مستقلة قابلة للاقتباس تحمل الكيان والرقم والسياق معاً، وعرّف كل مصطلح أو اسم عند أول ذكر له بنصف جملة، واستخدم الأسماء الكاملة والتواريخ الواردة في المادة المرجعية، ولا تستخدم «هذا» و«ذلك» دون مرجع واضح.
+- ممنوع نقل جمل المصادر أو ترجمتها حرفياً. أعد صياغة كل شيء بأسلوبك، وأضف سياقاً وقراءة خاصة بالمدونة بدل الاكتفاء بسرد الخبر.
+- اكتب لمحركات البحث ومحركات الإجابة التوليدية: جمل مستقلة قابلة للاقتباس تحمل الكيان والرقم والسياق معاً، وعرّف كل مصطلح أو اسم عند أول ذكر له بنصف جملة، واستخدم الأسماء الكاملة والتواريخ الواردة في المادة المرجعية، ولا تستخدم «هذا» و«ذلك» دون مرجع واضح.${if (site.avoid.isNotBlank()) "\n- تجنب تماماً: ${site.avoid}" else ""}${if (site.rules.isNotBlank()) "\n- قواعد خاصة بهذه المدونة (التزم بها حرفياً): ${site.rules.replace("\n", " ")}" else ""}
 - فقرات قصيرة (3 إلى 4 جمل). لا تستخدم Markdown ولا HTML. النقاط تبدأ بـ «- » في سطر مستقل."""
 
-private fun sysMeta() = """${rules()}
+private fun sysMeta(site: SiteConfig) = """${rules(site)}
 مهمتك الآن: هيكل المقال وأجزاؤه الأولى. أعد النتيجة بهذه الصيغة الوسمية فقط، كل وسم في سطر مستقل، بلا JSON ولا شرح خارجها:
 [[title]] عنوان 40-62 حرفاً يبدأ بالكلمة المفتاحية الأهم ويعد بفائدة واضحة، بلا علامات تعجب
 [[desc]] وصف 130-155 حرفاً يجيب عن سؤال القارئ ويدعوه للقراءة
 [[slug]] english-lowercase-hyphen-slug
-[[labels]] تصنيف1 | تصنيف2
+[[labels]] ${site.labelPool.take(4).joinToString(" | ")} (اختر 1-3 من هذه أو أضف قريباً منها)
 [[kicker]] كلمتان للغلاف
-[[motif]] واحد من: ${MOTIFS.joinToString(" ")}
+[[motif]] واحد من: ${site.motifs.joinToString(" ")}
 [[hue]] رقم 0-360
 [[infotitle]] عنوان بطاقة المعلومات
 [[fact]] قيمة قصيرة حتى 9 أحرف | شرح حتى 26 حرفاً
@@ -65,15 +64,15 @@ private fun sysMeta() = """${rules()}
 [[faq]] سؤال طبيعي يكتبه القارئ في جوجل؟ | جواب في جملتين
 [[faq]] (ثلاثة أسئلة)
 [[outro]]
-خاتمة من فقرة أو فقرتين فيها ما يهم المشجع."""
+خاتمة من فقرة أو فقرتين فيها ما يهم القارئ."""
 
-private fun sysSec() = """${rules()}
-مهمتك الآن: كتابة الأقسام المطلوبة فقط. لكل قسم اكتب 140 إلى 190 كلمة في فقرتين أو ثلاث. الصيغة بالضبط:
+private fun sysSec(site: SiteConfig) = """${rules(site)}
+مهمتك الآن: كتابة الأقسام المطلوبة فقط. لكل قسم اكتب ${site.sectionWords.first} إلى ${site.sectionWords.second} كلمة في فقرتين أو ثلاث. الصيغة بالضبط:
 [[section]] عنوان القسم
 فقرة أولى
 
 فقرة ثانية
-ولا شيء غير ذلك. في قسم واحد على الأقل، إن سمحت المادة، ضع بعد الفقرة الأولى جدول مقارنة صغيراً (3 أعمدة كحد أقصى و3 إلى 5 صفوف، السطر الأول عناوين الأعمدة) كل صف في سطر يبدأ بـ | وتفصل أعمدته | ، وإلا فاستخدم قائمة نقطية."""
+ولا شيء غير ذلك.${if (site.tables) " في قسم واحد على الأقل، إن سمحت المادة، ضع بعد الفقرة الأولى جدول مقارنة صغيراً (3 أعمدة كحد أقصى و3 إلى 5 صفوف، السطر الأول عناوين الأعمدة) كل صف في سطر يبدأ بـ | وتفصل أعمدته | ، وإلا فاستخدم قائمة نقطية." else ""}"""
 
 private val LISTMARK = Regex("^([-*•]|\\d+[.)])\\s+")
 
@@ -102,8 +101,8 @@ class Generator @Inject constructor(
         return out.take(n)
     }
 
-    suspend fun plan(n: Int, mode: PlanMode, custom: String, known: List<String> = emptyList()): List<Topic> {
-        val knownAll = (known + data.seed + history.load().topics).distinct()
+    suspend fun plan(site: SiteConfig, n: Int, mode: PlanMode, custom: String, known: List<String> = emptyList()): List<Topic> {
+        val knownAll = (known + (if (site.legacySeed) data.seed else emptyList()) + history.load(site.id).topics).distinct()
         val avoid = knownAll.takeLast(120)
         if (mode == PlanMode.Mine) {
             val l = custom.lines().map { it.trim() }.filter { it.length > 5 }.take(n)
@@ -113,15 +112,15 @@ class Generator @Inject constructor(
         }
         var news = emptyList<Ref>()
         if (mode == PlanMode.News) {
-            news = this.news.fetch(history.load().urls.toSet()).take(56)
+            news = this.news.fetch(site, history.load(site.id).urls.toSet()).take(56)
             val srcs = news.map { it.s }.distinct().size
             bus.log(if (news.isNotEmpty()) "جُلب ${news.size} خبراً من $srcs مصادر" else "تعذّر جلب الأخبار، سنكتب شروحات دائمة", if (news.isNotEmpty()) "" else "w")
         }
         val useNews = news.size >= 3
-        val sys = "أنت رئيس تحرير مدونة رياضية عربية. أعد قائمة فقط بلا مقدمة ولا شرح، كل موضوع في سطر واحد بهذه الصيغة بالضبط:\nعنوان الموضوع بالعربية | زاوية المعالجة في جملة | تصنيف1، تصنيف2 | أرقام الأخبار المرجعية (1 إلى 3 مفصولة بفواصل) أو -"
+        val sys = "أنت رئيس تحرير مدونة «${site.name}» المتخصصة في ${site.topicLabel}. أعد قائمة فقط بلا مقدمة ولا شرح، كل موضوع في سطر واحد بهذه الصيغة بالضبط:\nعنوان الموضوع بالعربية | زاوية المعالجة في جملة | تصنيف1، تصنيف2 | أرقام الأخبار المرجعية (1 إلى 3 مفصولة بفواصل) أو -"
         val usr = "المطلوب $n مواضيع متنوعة ومختلفة تماماً.\n" + (if (useNews)
-            "اختر المواضيع من الأخبار الحديثة التالية. الخانة الأخيرة = رقم خبر أو عدة أرقام لأخبار تتناول القصة نفسها من مصادر مختلفة (الدمج يرفع جودة المقال)، ولا تكرر قصة. خصّص ثلث المواضيع على الأقل لكرة القدم العربية (الدوري السعودي والمصري والمنتخبات العربية واللاعبون العرب) متى توفرت أخبارها. يجوز أن يكون ربعها شروحاً دائمة وآخر خانتها -.\n" + news.mapIndexed { i, x -> "$i. [${x.s}] ${x.h} — ${clamp(x.d, 120)}" }.joinToString("\n")
-        else "اجعلها شروحاً وتحليلات دائمة لا ترتبط بنتيجة أو خبر محدد (قواعد، تكتيك، مفاهيم، أدلة للمشجع)، وآخر خانة دائماً -.") +
+            "اختر المواضيع من الأخبار الحديثة التالية. الخانة الأخيرة = رقم خبر أو عدة أرقام لأخبار تتناول القصة نفسها من مصادر مختلفة (الدمج يرفع جودة المقال)، ولا تكرر قصة. " + (if (site.niche == "sport") "خصّص ثلث المواضيع على الأقل لكرة القدم العربية (الدوري السعودي والمصري والمنتخبات العربية واللاعبون العرب) متى توفرت أخبارها." else "قدّم ما يهم ${site.nicheDef.reader} أولاً وتجاهل الأخبار الخارجة عن تخصص المدونة.") + " يجوز أن يكون ربعها شروحاً دائمة وآخر خانتها -.\n" + news.mapIndexed { i, x -> "$i. [${x.s}] ${x.h} — ${clamp(x.d, 120)}" }.joinToString("\n")
+        else "اجعلها شروحاً وأدلة ومقارنات دائمة في مجال ${site.topicLabel}" + (if (site.keywords.isNotEmpty()) " (محاور: ${site.keywords.joinToString("، ")})" else "") + " لا ترتبط بخبر محدد، وآخر خانة دائماً -.") +
             "\nتجنب هذه العناوين المنشورة سابقاً:\n" + avoid.take(60).joinToString(" | ")
         try {
             var plan = emptyList<Topic>()
@@ -137,8 +136,15 @@ class Generator @Inject constructor(
         }
         val l = ArrayList<Topic>()
         if (useNews) news.take(Math.ceil(n * .6).toInt()).forEach { l += Topic(it.h, labels = listOf("أخبار"), ref = it, refs = listOf(it)) }
-        for (t in EVERGREEN) { if (l.size >= n) break; if (knownAll.none { similarTitles(t, it) } && l.none { it.topic == t }) l += Topic(t, labels = listOf("شروحات")) }
+        for (t in evergreenFor(site)) { if (l.size >= n) break; if (knownAll.none { similarTitles(t, it) } && l.none { it.topic == t }) l += Topic(t, labels = listOf("شروحات")) }
         return l.take(n)
+    }
+
+    private fun evergreenFor(site: SiteConfig): List<String> {
+        if (site.niche == "sport") return EVERGREEN
+        val kws = site.keywords.ifEmpty { site.nicheDef.keywords }.ifEmpty { listOf(site.topicLabel) }
+        val tpl = listOf("ما هو %s؟ دليل مبسّط للمبتدئين", "أهم الأخطاء الشائعة في %s وكيف تتجنبها", "أسئلة يطرحها القراء عن %s وإجاباتها", "مقارنة بين أبرز الخيارات في %s", "نصائح عملية للاستفادة القصوى من %s", "خرافات شائعة عن %s وحقيقتها", "كيف تبدأ في %s خطوة بخطوة")
+        return tpl.flatMap { t -> kws.map { k -> t.format(k) } }
     }
 
     private class Meta(
@@ -147,7 +153,7 @@ class Generator @Inject constructor(
         val outline: List<String>, val faq: List<Faq>, val outro: String,
     )
 
-    private fun parseMeta(txt: String, t: Topic): Meta {
+    private fun parseMeta(txt: String, t: Topic, site: SiteConfig): Meta {
         val l = parseTags(txt)
         val title = one(l.tg("title"))
         if (title.length < 15) throw IllegalStateException("عنوان قصير")
@@ -171,7 +177,7 @@ class Generator @Inject constructor(
         return Meta(
             clamp(title, 95), clamp(one(l.tg("desc")), 160), slugify(one(l.tg("slug")), "post-" + System.currentTimeMillis().toString(36)),
             labels.ifEmpty { listOf(if (t.ref != null) "أخبار" else "شروحات") }, clamp(one(l.tg("kicker")), 18).ifEmpty { "تحليل" },
-            if (motif in MOTIFS) motif else MOTIFS.random(), if (hue != null) ((hue % 360) + 360) % 360 else Random.nextInt(360),
+            if (motif in site.motifs) motif else site.motifs.random(), if (hue != null) ((hue % 360) + 360) % 360 else Random.nextInt(360),
             clamp(one(l.tg("infotitle")), 36).ifEmpty { "أهم الأرقام" }, facts, clamp(one(l.tg("tldr")).replace(Regex("\\s+"), " "), 320),
             intro, outline, faq, l.tg("outro"),
         )
@@ -184,7 +190,7 @@ class Generator @Inject constructor(
         Sec(one(ls[0]), ls.drop(1).joinToString("\n").trim())
     }.filter { wc(it.body) >= 70 }
 
-    suspend fun article(t: Topic): Article {
+    suspend fun article(site: SiteConfig, t: Topic): Article {
         val refs = t.all
         val ref = if (refs.isNotEmpty())
             "\nالمواد المرجعية (الوحيدة المسموح بالاستناد إليها للوقائع):" + refs.mapIndexed { i, r ->
@@ -195,8 +201,8 @@ class Generator @Inject constructor(
             (if (t.labels.isNotEmpty()) "\nتصنيفات مقترحة: ${t.labels.joinToString("، ")}" else "") + ref
         var meta: Meta? = null
         val used = LinkedHashSet<String>()
-        val r1 = engine.chat(listOf(ChatMessage("system", sysMeta()), ChatMessage("user", "$base\nاكتب هيكل المقال بالصيغة الوسمية الآن.")),
-            ChatOpts(max = 2600, validate = { meta = parseMeta(it, t) }))
+        val r1 = engine.chat(listOf(ChatMessage("system", sysMeta(site)), ChatMessage("user", "$base\nاكتب هيكل المقال بالصيغة الوسمية الآن.")),
+            ChatOpts(max = 2600, validate = { meta = parseMeta(it, t, site) }))
         used += r1.provider
         val first = meta!!
         val secs = arrayOfNulls<Sec>(first.outline.size)
@@ -206,7 +212,7 @@ class Generator @Inject constructor(
             var got = emptyList<Sec>()
             try {
                 val r = engine.chat(
-                    listOf(ChatMessage("system", sysSec()), ChatMessage("user",
+                    listOf(ChatMessage("system", sysSec(site)), ChatMessage("user",
                         "$base\n\nعنوان المقال: ${first.title}\nمقدمته: ${clamp(first.intro.replace(Regex("\\s+"), " "), 380)}\n\nاكتب هذه الأقسام فقط وبالترتيب:\n" + need.joinToString("\n") { "- ${it.value}" })),
                     ChatOpts(max = 4200, validate = { x -> got = parseSections(x); if (got.isEmpty()) throw IllegalStateException("لا أقسام صالحة") }),
                 )
@@ -221,7 +227,7 @@ class Generator @Inject constructor(
         val filled = secs.filterNotNull().map { Section(it.h, toHtml(it.body)) }
         val words = wc(first.intro) + wc(first.outro) + filled.sumOf { wc(stripTags(it.html)) } + first.faq.sumOf { wc(it.a) }
         if (filled.size < 3) throw IllegalStateException("أقسام قليلة")
-        if (words < 360) throw IllegalStateException("مقال قصير ($words كلمة)")
+        if (words < site.minWords) throw IllegalStateException("مقال قصير ($words كلمة)")
         return Article(
             first.title, first.desc.ifEmpty { clamp(first.tldr, 155) }, first.slug, first.labels, first.kicker, first.motif, first.hue,
             first.infotitle, first.facts, first.tldr, toHtml(first.intro), filled, first.faq, toHtml(first.outro),

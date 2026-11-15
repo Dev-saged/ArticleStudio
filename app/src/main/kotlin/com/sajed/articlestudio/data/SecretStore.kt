@@ -19,6 +19,7 @@ class SecretException(message: String) : Exception(message)
 @Singleton
 open class SecretStore @Inject constructor(@ApplicationContext c: Context) {
     private val sp = c.getSharedPreferences("secrets", Context.MODE_PRIVATE)
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun key(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -34,22 +35,24 @@ open class SecretStore @Inject constructor(@ApplicationContext c: Context) {
     }
 
     open fun put(name: String, value: String) {
-        if (value.isEmpty()) { sp.edit().remove(name).apply(); return }
+        if (value.isEmpty()) { cache.remove(name); sp.edit().remove(name).apply(); return }
         val enc = try {
             val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
             cipher.iv + cipher.doFinal(value.toByteArray())
         } catch (e: Exception) { throw SecretException("تعذّر حفظ المفتاح بأمان على هذا الجهاز (Keystore)") }
         sp.edit().putString(name, Base64.encodeToString(enc, Base64.NO_WRAP)).apply()
+        cache[name] = value
     }
 
     open fun get(name: String): String {
+        cache[name]?.let { return it }
         val raw = sp.getString(name, null) ?: return ""
         return runCatching {
             val b = Base64.decode(raw, Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORM)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, 0, IV_LEN))
             String(cipher.doFinal(b, IV_LEN, b.size - IV_LEN))
-        }.getOrDefault("")
+        }.getOrDefault("").also { if (it.isNotEmpty()) cache[name] = it }
     }
 
     open fun has(name: String) = sp.contains(name)

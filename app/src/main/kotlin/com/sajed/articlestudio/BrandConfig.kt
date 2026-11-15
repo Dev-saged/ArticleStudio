@@ -5,7 +5,6 @@ import com.sajed.articlestudio.ui.theme.Oklch
 /** المصدر الوحيد للهوية: الاسم والألوان والوحدات والترخيص. عميل جديد = تعديل هذا الملف فقط. */
 object BrandConfig {
     const val NAME = "استوديو المقالات"
-    const val TAGLINE = "المزودون يتبادلون الكرة تلقائياً"
     const val DYNAMIC_COLOR = false
     const val BLOG_NAME = "سبورت لايف 24"
     const val BLOG_SITE = "https://sport1live24.blogspot.com"

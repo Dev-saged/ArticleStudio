@@ -15,9 +15,9 @@ object ExportNaming {
     }
 
     /** اسم الملف: «5 مقالات سبورت لايف 24 - 15-11-2026.xml» مع لاحقة (2) عند التكرار. */
-    fun fileName(n: Int, date: LocalDate, exists: (String) -> Boolean): String {
+    fun fileName(n: Int, date: LocalDate, site: String = BrandConfig.BLOG_NAME, exists: (String) -> Boolean): String {
         val head = when (n) { 1 -> "مقال واحد"; 2 -> "مقالان"; else -> countPhrase(n) }
-        val base = "$head ${BrandConfig.BLOG_NAME} - ${date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))}"
+        val base = "$head $site - ${date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))}"
             .replace(Regex("[\\\\/:*?\"<>|]"), "-")
         var name = "$base.xml"
         var i = 2

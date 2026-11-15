@@ -52,8 +52,8 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
         }
     }
 
-    private fun ownerRepo(): Pair<String, String> {
-        val p = cfg.repo.trim().split('/')
+    private fun ownerRepo(repo: String = cfg.repo): Pair<String, String> {
+        val p = repo.trim().split('/')
         if (p.size != 2 || p.any { it.isEmpty() }) throw IllegalArgumentException("صيغة المستودع owner/repo")
         return p[0] to p[1]
     }
@@ -61,9 +61,9 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
     private fun JsonElement.str(vararg k: String): String = k.fold(this) { e, n -> e.jsonObject[n] ?: JsonNull }.jsonPrimitive.contentOrNull.orEmpty()
 
     /** فحص مسبق: قراءة المستودع ثم صلاحية الكتابة فعلياً. */
-    suspend fun check(): List<String> {
+    suspend fun check(repo: String = cfg.repo): List<String> {
         if (cfg.token.isEmpty()) throw IllegalArgumentException("أدخل GitHub Token")
-        val (o, r) = ownerRepo()
+        val (o, r) = ownerRepo(repo)
         val out = ArrayList<String>()
         val info = gh("/repos/$o/$r", what = "قراءة المستودع")
         out += "المستودع ${info.str("full_name")} مقروء"
@@ -75,9 +75,9 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
     }
 
     /** إيداع واحد لكل الصور على فرع مخصص؛ يعيد الرابط الأساسي المثبّت بمعرّف الإيداع عبر jsDelivr. */
-    suspend fun pushImages(files: List<ImageFile>, step: (String, Int, Int) -> Unit): String {
-        val (o, r) = ownerRepo()
-        val br = cfg.branch.ifBlank { "blog-images" }
+    suspend fun pushImages(files: List<ImageFile>, repo: String, branch: String, step: (String, Int, Int) -> Unit): String {
+        val (o, r) = ownerRepo(repo)
+        val br = branch.ifBlank { "blog-images" }
         val enc = URLEncoder.encode(br, "UTF-8")
         step("تجهيز الفرع", 0, files.size)
         val ref = try { gh("/repos/$o/$r/git/ref/heads/$enc", what = "قراءة الفرع") } catch (e: GitHubException) {

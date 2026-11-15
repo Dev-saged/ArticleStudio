@@ -41,11 +41,12 @@ class History(val slugs: List<String> = emptyList(), val topics: List<String> = 
 @Singleton
 class HistoryStore @Inject constructor(@ApplicationContext c: Context) {
     private val sp = c.getSharedPreferences("history", Context.MODE_PRIVATE)
-    fun load(): History = runCatching { Json.decodeFromString(History.serializer(), sp.getString("h", "") ?: "") }.getOrDefault(History())
-    fun add(slugs: List<String>, topics: List<String>, urls: List<String> = emptyList()) {
-        val h = load()
+    private fun key(siteId: String) = if (siteId == "default") "h" else "h_$siteId"
+    fun load(siteId: String = "default"): History = runCatching { Json.decodeFromString(History.serializer(), sp.getString(key(siteId), "") ?: "") }.getOrDefault(History())
+    fun add(slugs: List<String>, topics: List<String>, urls: List<String> = emptyList(), siteId: String = "default") {
+        val h = load(siteId)
         val n = History((h.slugs + slugs).takeLast(400), (h.topics + topics).takeLast(200), h.batches + 1, (h.urls + urls).takeLast(600))
-        sp.edit().putString("h", Json.encodeToString(History.serializer(), n)).apply()
+        sp.edit().putString(key(siteId), Json.encodeToString(History.serializer(), n)).apply()
     }
 }
 

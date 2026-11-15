@@ -31,7 +31,7 @@ data class JobUi(
 @Singleton
 class JobRunner @Inject constructor(
     private val gen: Generator, private val jobs: JobDao, private val arts: ArticleDao,
-    private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex,
+    private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex, private val sites: SiteStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _state = MutableStateFlow(JobUi())
@@ -54,10 +54,10 @@ class JobRunner @Inject constructor(
         scope.launch { if (jobs.latest()?.state == "running" && !isRunning()) resume() }
     }
 
-    fun start(n: Int, mode: PlanMode, custom: String) {
+    fun start(n: Int, mode: PlanMode, custom: String, siteId: String = "default") {
         if (isRunning()) return
         run = scope.launch {
-            val id = jobs.upsert(JobEntity(total = n, state = "running", createdAt = System.currentTimeMillis(), mode = mode.name, custom = custom))
+            val id = jobs.upsert(JobEntity(total = n, state = "running", createdAt = System.currentTimeMillis(), mode = mode.name, custom = custom, siteId = siteId))
             bus.log("بدء مهمة جديدة")
             execute(jobs.latest()!!.copy(id = id))
         }
@@ -80,13 +80,14 @@ class JobRunner @Inject constructor(
         if (isRunning()) return
         run = scope.launch {
             val e = arts.byId(id) ?: return@launch
+            val site = sites.get(e.siteId)
             val topic = if (e.status == "failed") AppJson.decodeFromString(Topic.serializer(), e.data)
-            else AppJson.decodeFromString(Article.serializer(), e.data).let { a -> Topic(a.topic, labels = a.labels, ref = a.ref) }
+            else AppJson.decodeFromString(Article.serializer(), e.data).let { a -> Topic(a.topic, labels = a.labels, ref = a.ref, refs = a.refs) }
             _state.update { it.copy(running = true, phase = "إعادة توليد: ${clamp(topic.topic, 40)}") }
             live.set("إعادة توليد: ${clamp(topic.topic, 50)}")
             try {
-                val a = gen.article(topic)
-                arts.upsert(e.copy(title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, error = "", data = AppJson.encodeToString(Article.serializer(), a), updatedAt = System.currentTimeMillis()))
+                val a = gen.article(site, topic)
+                arts.upsert(e.copy(title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", quality = a.quality, words = a.words, provider = a.provider, error = "", data = AppJson.encodeToString(Article.serializer(), a), updatedAt = System.currentTimeMillis()))
                 bus.log("أُعيد توليد المقال: ${a.words} كلمة", "o")
                 live.set("أُعيد توليد المقال")
             } catch (ex: CancellationException) { throw ex } catch (ex: Exception) {
@@ -97,14 +98,15 @@ class JobRunner @Inject constructor(
 
     private suspend fun execute(job0: JobEntity) {
         var job = job0
+        val site = sites.get(job.siteId)
         _state.value = JobUi(true, job.id, job.total, job.done, job.failed, phase = "تخطيط المواضيع")
         try {
             var topics = if (job.topics.isEmpty()) emptyList() else AppJson.decodeFromString(topicsSer, job.topics)
             if (topics.isEmpty()) {
                 bus.log("تخطيط المواضيع…"); live.set("تخطيط المواضيع…")
-                val n = blog.refresh()
+                val n = blog.refresh(site.url)
                 if (n > 0) bus.log("فهرس المدونة: $n مقالاً منشوراً سيُتجنَّب تكراره") else bus.log("تعذّر قراءة مقالات المدونة، سيُعتمد على السجل المحلي", "w")
-                topics = gen.plan(job.total, PlanMode.valueOf(job.mode), job.custom, blog.titles() + arts.titles())
+                topics = gen.plan(site, job.total, PlanMode.valueOf(job.mode), job.custom, blog.titles(site.url) + arts.titlesFor(site.id))
                 job = job.copy(topics = AppJson.encodeToString(topicsSer, topics), total = topics.size, next = 0)
                 jobs.upsert(job)
                 bus.log("الخطة جاهزة: ${topics.size} مواضيع", "o")
@@ -116,10 +118,10 @@ class JobRunner @Inject constructor(
                 _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = clamp(t.topic, 50))
                 var ok = false
                 try {
-                    val a = gen.article(t)
-                    val dup = blog.similar(a.title)
+                    val a = gen.article(site, t)
+                    val dup = blog.similar(site.url, a.title)
                     if (dup != null) bus.log("تنبيه: عنوان قريب من مقال منشور «${clamp(dup.title, 40)}»", "w")
-                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, error = dup?.let { "قريب من: " + clamp(it.title, 60) }.orEmpty(), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Article.serializer(), a)))
+                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, siteId = site.id, quality = a.quality, error = dup?.let { "قريب من: " + clamp(it.title, 60) }.orEmpty(), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Article.serializer(), a)))
                     bus.log("تم: ${a.words} كلمة عبر ${a.provider}", "o"); ok = true
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     bus.log("فشل الموضوع: " + clamp(e.message, 70), "e")

@@ -49,13 +49,15 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: ExportManager, private val cfg: GitHubSettings) : ViewModel() {
-    val ready: StateFlow<Int> = dao.observeAll().map { l -> l.count { it.status == "ready" } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: ExportManager, private val cfg: GitHubSettings, private val sites: com.sajed.articlestudio.engine.SiteStore) : ViewModel() {
+    val ready: StateFlow<Int> = sites.activeId.flatMapLatest { sid -> dao.observeRows().map { l -> l.count { it.status == "ready" && it.siteId == sid } } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val siteName: StateFlow<String> = sites.activeId.map { sites.get(it).name }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
     val ui: StateFlow<ExportUi> = mgr.ui
 
     private val _form = MutableStateFlow(read())
@@ -89,12 +91,12 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
         if (!persist() || _busy.value) return
         _busy.value = true
         viewModelScope.launch {
-            _check.value = try { mgr.check().map { true to it } } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) { listOf(false to clamp(e.message, 200)) }
+            _check.value = try { mgr.check(sites.activeId.value).map { true to it } } catch (e: kotlin.coroutines.cancellation.CancellationException) { throw e } catch (e: Exception) { listOf(false to clamp(e.message, 200)) }
             _busy.value = false
         }
     }
 
-    fun export() { if (persist() && !_busy.value) viewModelScope.launch { _busy.value = true; mgr.export(); _busy.value = false } }
+    fun export() { if (persist() && !_busy.value) viewModelScope.launch { _busy.value = true; mgr.export(sites.activeId.value); _busy.value = false } }
     val files: StateFlow<List<com.sajed.articlestudio.engine.ExportFile>> = mgr.files
     fun open(c: Context, name: String, view: Boolean) { mgr.shareIntent(name, view)?.let { runCatching { c.startActivity(it) } } }
     fun delete(name: String) = mgr.delete(name)

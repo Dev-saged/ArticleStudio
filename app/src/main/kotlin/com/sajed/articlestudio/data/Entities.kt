@@ -20,6 +20,8 @@ data class ArticleEntity(
     val error: String = "",
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(defaultValue = "''") val data: String = "",
+    @ColumnInfo(name = "site_id", defaultValue = "'default'") val siteId: String = "default",
+    @ColumnInfo(defaultValue = "0") val quality: Int = 0,
 )
 
 /** state: running | paused | done. topics: خطة المواضيع JSON، next: فهرس الموضوع التالي. */
@@ -35,4 +37,5 @@ data class JobEntity(
     @ColumnInfo(defaultValue = "'news'") val mode: String = "news",
     @ColumnInfo(defaultValue = "''") val custom: String = "",
     @ColumnInfo(defaultValue = "0") val failed: Int = 0,
+    @ColumnInfo(name = "site_id", defaultValue = "'default'") val siteId: String = "default",
 )
