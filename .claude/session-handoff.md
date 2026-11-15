@@ -1,4 +1,4 @@
-# session-handoff — {{PROJECT_NAME}}
+# session-handoff — ArticleStudio
 (يُعاد كتابته في نهاية كل جلسة، 25 سطراً كحد أقصى)
 
 - الحالة: مشروع جديد من القالب، لا كود بعد.

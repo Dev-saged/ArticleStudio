@@ -1,4 +1,4 @@
-# repo-map — {{PROJECT_NAME}}
+# repo-map — ArticleStudio
 
 > أول ما تفتح: هذا الملف ثم `.claude/session-handoff.md`. ابحث عن الرموز بـ `Grep` في `docs/code-index.md` (يُولَّد تلقائياً) ولا تقرأ ملفاً فوق 300 سطر كاملاً.
 > حافظ على هذا الملف تحت 5KB: بلا كود، وحدّثه بسطرين بعد كل تغيير.

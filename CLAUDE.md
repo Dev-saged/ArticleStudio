@@ -1,4 +1,4 @@
-# Project rules — {{PROJECT_NAME}} (read first, every session)
+# Project rules — ArticleStudio (read first, every session)
 
 Owner: Sajed. Reply in Arabic. Identifiers, syntax and commits in English.
 Output: no greetings or filler. Max 3 bullets of explanation. One-line summary before code.
