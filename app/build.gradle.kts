@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.coroutines)
     implementation(libs.serialization.json)
     implementation(libs.okhttp)
+    implementation(libs.play.auth)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.room.testing)

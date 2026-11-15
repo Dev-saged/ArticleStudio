@@ -16,11 +16,12 @@ data class ArticleRow(
     val id: Long, @ColumnInfo(name = "job_id") val jobId: Long, val idx: Int, val title: String, val labels: String,
     val status: String, val words: Int, val provider: String, val error: String,
     @ColumnInfo(name = "updated_at") val updatedAt: Long, val quality: Int, @ColumnInfo(name = "site_id") val siteId: String,
+    @ColumnInfo(name = "remote_url") val remoteUrl: String,
 )
 
 @Dao
 interface ArticleDao {
-    @Query("SELECT id, job_id, idx, title, labels, status, words, provider, error, updated_at, quality, site_id FROM articles ORDER BY job_id DESC, idx ASC")
+    @Query("SELECT id, job_id, idx, title, labels, status, words, provider, error, updated_at, quality, site_id, remote_url FROM articles ORDER BY job_id DESC, idx ASC")
     fun observeRows(): Flow<List<ArticleRow>>
 
     @Query("SELECT * FROM articles WHERE status = 'ready' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
@@ -34,6 +35,12 @@ interface ArticleDao {
 
     @Query("UPDATE articles SET quality = :q WHERE id = :id")
     suspend fun setQuality(id: Long, q: Int)
+
+    @Query("UPDATE articles SET remote_url = :url WHERE id = :id")
+    suspend fun setRemote(id: Long, url: String)
+
+    @Query("SELECT * FROM articles WHERE site_id = :siteId AND title = :title AND status != 'failed' LIMIT 1")
+    suspend fun byTitle(siteId: String, title: String): ArticleEntity?
 
     @Query("DELETE FROM articles WHERE site_id = :siteId")
     suspend fun deleteSite(siteId: String)
@@ -91,10 +98,15 @@ object Migrations {
             db.execSQL("ALTER TABLE jobs ADD COLUMN site_id TEXT NOT NULL DEFAULT 'default'")
         }
     }
-    val ALL: Array<Migration> = arrayOf(M1_2, M2_3)
+    val M3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE articles ADD COLUMN remote_url TEXT NOT NULL DEFAULT ''")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4)
 }
 
-@Database(entities = [ArticleEntity::class, JobEntity::class], version = 3, exportSchema = true)
+@Database(entities = [ArticleEntity::class, JobEntity::class], version = 4, exportSchema = true)
 abstract class AppDb : RoomDatabase() {
     abstract fun articles(): ArticleDao
     abstract fun jobs(): JobDao

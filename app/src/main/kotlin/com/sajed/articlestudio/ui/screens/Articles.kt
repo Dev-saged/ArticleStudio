@@ -60,14 +60,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-data class ArticleItem(val id: Long, val title: String, val status: String, val words: Int, val provider: String, val quality: Int, val error: String)
+data class ArticleItem(val id: Long, val title: String, val status: String, val words: Int, val provider: String, val quality: Int, val error: String, val remote: Boolean = false)
 
 @HiltViewModel
 class ArticlesViewModel @Inject constructor(
     private val dao: ArticleDao, private val runner: JobRunner, private val sites: com.sajed.articlestudio.engine.SiteStore, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
     val items: StateFlow<List<ArticleItem>?> = sites.activeId.flatMapLatest { sid ->
-        dao.observeRows().map { l -> l.filter { it.siteId == sid }.map { e -> ArticleItem(e.id, e.title, e.status, e.words, e.provider, e.quality, e.error) } }
+        dao.observeRows().map { l -> l.filter { it.siteId == sid }.map { e -> ArticleItem(e.id, e.title, e.status, e.words, e.provider, e.quality, e.error, e.remoteUrl.isNotEmpty()) } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
@@ -145,7 +145,7 @@ fun ArticlesScreen(vm: ArticlesViewModel = hiltViewModel()) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val tone = when { a.status == "failed" -> c.red; a.quality >= 80 -> c.ok; a.quality >= 60 -> c.goldText; else -> c.muted }
                         Text(
-                            if (a.status == "failed") a.error.ifBlank { "فشل" } else "${statusLabel(a.status)} · ${a.words.toString().ltr()} كلمة · ${a.quality.toString().ltr()}/100 · ${a.provider}",
+                            if (a.status == "failed") a.error.ifBlank { "فشل" } else (if (a.remote) "منشور على بلوجر · " else "") + "${statusLabel(a.status)} · ${a.words.toString().ltr()} كلمة · ${a.quality.toString().ltr()}/100 · ${a.provider}",
                             style = MaterialTheme.typography.bodySmall, color = tone, modifier = Modifier.weight(1f),
                         )
                         if (a.status != "exported") IconBtn(Icons.Refresh, "إعادة توليد", { vm.regenerate(a.id) })

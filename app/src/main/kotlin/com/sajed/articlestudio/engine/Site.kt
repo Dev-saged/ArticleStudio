@@ -82,6 +82,10 @@ data class SiteConfig(
     val schedule: Int = 0,
     val repo: String = "",
     val branch: String = "",
+    val pubMode: String = "off",
+    val pubState: String = "draft",
+    val scriptUrl: String = "",
+    val googleAccount: String = "",
     val legacySeed: Boolean = false,
     val createdAt: Long = 0,
 ) {
@@ -96,6 +100,9 @@ data class SiteConfig(
 }
 
 private val TONES = setOf("friendly", "formal", "analytic", "simple")
+val PUB_MODES = setOf("off", "script", "google")
+val PUB_STATES = setOf("draft", "live", "scheduled")
+private val SCRIPT_URL = Regex("^https://script\\.google(usercontent)?\\.com/\\S+$")
 
 object SiteRules {
     /** يتحقق من بيانات الموقع ويعيد أسماء الحقول الخاطئة ورسائلها. */
@@ -105,6 +112,9 @@ object SiteRules {
         val u = s.url.trim()
         if (!Regex("^https?://[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(/.*)?$").matches(u)) e["url"] = "رابط غير صالح، مثال: https://example.blogspot.com"
         if (s.tone !in TONES) e["tone"] = "نبرة غير معروفة"
+        if (s.pubMode !in PUB_MODES) e["pubMode"] = "طريقة نشر غير معروفة"
+        if (s.pubState !in PUB_STATES) e["pubState"] = "حالة نشر غير معروفة"
+        if (s.pubMode == "script" && !SCRIPT_URL.matches(s.scriptUrl.trim())) e["scriptUrl"] = "رابط تطبيق الويب من Apps Script، يبدأ بـ https://script.google.com/"
         if (s.repo.isNotBlank() && !Regex("^[\\w.-]+/[\\w.-]+$").matches(s.repo.trim())) e["repo"] = "الصيغة owner/repo"
         s.feeds.firstOrNull { !it.startsWith("http") }?.let { e["feeds"] = "كل مصدر RSS يبدأ بـ http: $it" }
         return e
@@ -114,7 +124,7 @@ object SiteRules {
         name = s.name.trim().take(60), url = s.url.trim().trimEnd('/'), author = s.author.trim().take(60), audience = s.audience.trim().take(120),
         keywords = s.keywords.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(12), avoid = s.avoid.trim().take(400), rules = s.rules.trim().take(1200),
         feeds = s.feeds.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8), labels = s.labels.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8),
-        count = s.count.coerceIn(3, 30), schedule = s.schedule.coerceIn(0, 72),
+        scriptUrl = s.scriptUrl.trim(), googleAccount = s.googleAccount.trim(), count = s.count.coerceIn(3, 30), schedule = s.schedule.coerceIn(0, 72),
     )
 
     fun newId(name: String): String = slugify(name, "site") + "-" + System.currentTimeMillis().toString(36).takeLast(4)

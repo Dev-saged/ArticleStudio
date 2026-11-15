@@ -22,6 +22,7 @@ data class ArticleEntity(
     @ColumnInfo(defaultValue = "''") val data: String = "",
     @ColumnInfo(name = "site_id", defaultValue = "'default'") val siteId: String = "default",
     @ColumnInfo(defaultValue = "0") val quality: Int = 0,
+    @ColumnInfo(name = "remote_url", defaultValue = "''") val remoteUrl: String = "",
 )
 
 /** state: running | paused | done. topics: خطة المواضيع JSON، next: فهرس الموضوع التالي. */

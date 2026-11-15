@@ -181,6 +181,11 @@ class SitesViewModel @Inject constructor(
     }
 }
 
+private fun pubSummary(s: SiteConfig) = when (s.pubMode) {
+    "script", "google" -> "النشر: ${pubModeLabel(s.pubMode)} · " + when (s.pubState) { "live" -> "مباشر"; "scheduled" -> "مجدول"; else -> "مسودة" }
+    else -> "النشر المباشر متوقف"
+}
+
 private fun nicheColor(hue: Int) = Color.hsv(hue.toFloat(), 0.55f, 0.88f)
 
 @Composable
@@ -191,6 +196,7 @@ fun SitesScreen(onGenerate: () -> Unit, vm: SitesViewModel = hiltViewModel()) {
     val stats by vm.stats.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<SiteConfig?>(null) }
     var deleting by remember { mutableStateOf<SiteConfig?>(null) }
+    var publishing by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
@@ -215,12 +221,13 @@ fun SitesScreen(onGenerate: () -> Unit, vm: SitesViewModel = hiltViewModel()) {
             SiteCard(
                 s, stats[s.id] ?: SiteStats(), s.id == active, canDelete = sites.size > 1,
                 onActivate = { vm.activate(s.id) }, onGenerate = { vm.activate(s.id); onGenerate() },
-                onEdit = { editing = s }, onDelete = { deleting = s },
+                onEdit = { editing = s }, onDelete = { deleting = s }, onPublish = { publishing = s.id },
             )
         }
     }
 
-    editing?.let { s -> SiteEditor(s, isNew = s.id.isEmpty(), onClose = { editing = null }, onSave = { built -> vm.save(built, s.id.isEmpty()); editing = null }) }
+    publishing?.let { PublishSheet(it, onClose = { publishing = null }) }
+    editing?.let { s -> SiteEditor(s, isNew = s.id.isEmpty(), onClose = { editing = null }, onSave = { built -> val isNew = s.id.isEmpty(); val saved = vm.save(built, isNew); editing = null; if (isNew) publishing = saved.id }) }
     deleting?.let { s ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -246,7 +253,7 @@ private fun Kpi(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun SiteCard(
     s: SiteConfig, st: SiteStats, active: Boolean, canDelete: Boolean,
-    onActivate: () -> Unit, onGenerate: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit,
+    onActivate: () -> Unit, onGenerate: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onPublish: () -> Unit,
 ) {
     val c = AppTheme.colors
     val shape = RoundedCornerShape(16.dp)
@@ -269,13 +276,15 @@ private fun SiteCard(
             if (active) Text("النشط", style = MaterialTheme.typography.labelMedium, color = c.goldText, modifier = Modifier.background(c.gold.copy(alpha = 0.16f), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 4.dp))
         }
         Text(s.topicLabel, style = MaterialTheme.typography.bodyMedium, color = c.text)
+        Text(pubSummary(s), style = MaterialTheme.typography.labelMedium, color = if (s.pubMode == "off") c.muted else c.goldText)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Mini("منشور", st.posts, Modifier.weight(1f)); Mini("مولّد", st.total, Modifier.weight(1f))
             Mini("جاهز", st.ready, Modifier.weight(1f)); Mini("مُصدَّر", st.exported, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onGenerate) { Text("ولّد لهذا الموقع", color = c.goldText) }
+            TextButton(onGenerate) { Text("ولّد", color = c.goldText) }
             Box(Modifier.weight(1f))
+            TextButton(onPublish) { Text("النشر", color = c.text) }
             TextButton(onEdit) { Text("تعديل", color = c.text) }
             if (canDelete) TextButton(onDelete) { Text("حذف", color = c.red) }
         }
