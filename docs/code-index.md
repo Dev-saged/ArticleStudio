@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 72 ملفاً · 5552 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: ProviderEngine.kt 260 · Generator.kt 252 · Providers.kt 211 · HomeScreen.kt 198 · Articles.kt 191 · 2.json 181 · Export.kt 168 · repomap.py 146
+> 77 ملفاً · 6162 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: ProviderEngine.kt 269 · Providers.kt 261 · Generator.kt 231 · Export.kt 231 · HomeScreen.kt 216 · Articles.kt 192 · 2.json 181 · KeyBackup.kt 154
 
 ### ./
 - CLAUDE.md (44)
@@ -33,26 +33,30 @@
 - BrandConfig.kt (41): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (72): ArticleDao, JobDao, Migrations, AppDb
+- Db.kt (75): ArticleDao, JobDao, Migrations, AppDb
 - Entities.kt (39): ArticleEntity, JobEntity
-- Providers.kt (74): ProviderSpec, ProviderCatalog, ProviderStore
+- KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
+- Providers.kt (57): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (63): SecretException, SecretStore
 - Stores.kt (71): Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
 - Modules.kt (29): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
-- ExportManager.kt (109): ExportStep, ExportUi, ExportManager
+- BlogIndex.kt (74): BlogPost, BlogIndex
+- ExportManager.kt (122): ExportSummary, ExportFile, ExportUi, ExportManager
+- ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (102): GenerationService
-- Generator.kt (252): PlanMode, Generator
+- Generator.kt (231): PlanMode, Generator
 - GitHubClient.kt (126): GitHubException, ImageFile, GitHubClient
 - ImageRenderer.kt (140): RenderedImages, ImageRenderer
-- JobRunner.kt (144): JobUi, JobRunner
-- Models.kt (34): Ref, Topic, Fact, Section, Faq, Article
-- ProviderEngine.kt (260): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
+- JobRunner.kt (148): JobUi, JobRunner
+- Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
+- NewsSources.kt (106): NewsSources
+- ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (129): hsl, SvgDraw
-- Text.kt (61): esc, toHtml, Tag, parseTags, one, List, wc +6
+- Text.kt (78): esc, toHtml, Tag, parseTags, one, List, wc +9
 - XmlBuilder.kt (83): XmlBuilder
 ### app/src/main/kotlin/com/sajed/articlestudio/schema/
 - Engine.kt (113): SchemaForm, KpiRow, SchemaRow
@@ -62,17 +66,17 @@
 - Motion.kt (55): Modifier.stagger, AmbientBackground
 - Prefs.kt (33): UiPrefs, LiveStatus
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (198): HomeScreen
-- HomeViewModel.kt (130): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
+- HomeScreen.kt (216): HomeScreen
+- HomeViewModel.kt (133): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
 - Icons.kt (53): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
 - AppNav.kt (111): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
-- Articles.kt (191): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
-- Export.kt (168): ExportViewModel, ExportScreen
-- Providers.kt (211): ProviderUi, ProvidersViewModel, ProvidersScreen
+- Articles.kt (192): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
+- Export.kt (231): ExportViewModel, ExportScreen
+- Providers.kt (261): ProviderUi, ProvidersViewModel, ProvidersScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -101,8 +105,9 @@
 - JobRunnerTest.kt (121): JobRunnerTest
 - ProviderHttpTest.kt (85): ProviderHttpTest
 - RenderTest.kt (38): RenderTest
+- V3Test.kt (95): V3Test
 ### docs/
-- repo-map.md (43)
+- repo-map.md (50)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
