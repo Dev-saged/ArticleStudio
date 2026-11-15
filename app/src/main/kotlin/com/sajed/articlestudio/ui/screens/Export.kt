@@ -52,10 +52,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: ExportManager, private val cfg: GitHubSettings, private val sites: com.sajed.articlestudio.engine.SiteStore) : ViewModel() {
+class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: ExportManager, private val cfg: GitHubSettings, private val sites: com.sajed.articlestudio.engine.SiteStore, private val auth: com.sajed.articlestudio.engine.GoogleAuth) : ViewModel() {
+    val pub: StateFlow<ExportManager.PubUi> = mgr.pub
+    val pubSite: StateFlow<com.sajed.articlestudio.engine.SiteConfig> = sites.activeId.map { sites.get(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), sites.active())
     val ready: StateFlow<Int> = sites.activeId.flatMapLatest { sid -> dao.observeRows().map { l -> l.count { it.status == "ready" && it.siteId == sid } } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     val siteName: StateFlow<String> = sites.activeId.map { sites.get(it).name }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
     val ui: StateFlow<ExportUi> = mgr.ui
@@ -101,6 +104,31 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
     fun open(c: Context, name: String, view: Boolean) { mgr.shareIntent(name, view)?.let { runCatching { c.startActivity(it) } } }
     fun delete(name: String) = mgr.delete(name)
     fun dismiss() = mgr.clearResult()
+    fun dismissPub() = mgr.clearPub()
+    fun publishFile(name: String) { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.publishFile(sites.activeId.value, name); _busy.value = false } }
+    fun publishUri(c: Context, uri: android.net.Uri) {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            val text = withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { c.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull() }
+            if (text.isNullOrBlank()) mgr.publishText(sites.activeId.value, "") else mgr.publishText(sites.activeId.value, text)
+            _busy.value = false
+        }
+    }
+    /** بعد عودة نافذة موافقة جوجل: نحفظ الحساب ونكمل النشر المتوقف. */
+    fun onConsent(data: android.content.Intent?) {
+        viewModelScope.launch {
+            _busy.value = true
+            when (val r = auth.fromIntent(data)) {
+                is com.sajed.articlestudio.engine.GoogleAuth.Result.Token -> {
+                    r.email?.let { e -> sites.upsert(sites.active().copy(googleAccount = e)) }
+                    mgr.retryPublish()
+                }
+                else -> mgr.clearPub()
+            }
+            _busy.value = false
+        }
+    }
 }
 
 @Composable
@@ -114,6 +142,10 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
     val c = AppTheme.colors
     val ctx = LocalContext.current
     var settings by remember { mutableStateOf(false) }
+    val pub by vm.pub.collectAsStateWithLifecycle()
+    val pubSite by vm.pubSite.collectAsStateWithLifecycle()
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { u -> if (u != null) vm.publishUri(ctx, u) }
+    val consent = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()) { r -> vm.onConsent(r.data) }
 
     val files by vm.files.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<String?>(null) }
@@ -179,6 +211,20 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
                 }
             }
         } }
+        if (pub.running || pub.report != null) item("pub") {
+            PublishCard(pub, onConsent = { consent.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }, onDismiss = vm::dismissPub)
+        }
+        item("pubfile") {
+            Panel(Modifier.fillMaxWidth().clickable(enabled = !busy) { pick.launch(arrayOf("text/xml", "application/xml", "application/atom+xml", "*/*")) }) {
+                Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Link, null, tint = c.goldText)
+                    Column(Modifier.weight(1f)) {
+                        Text("نشر ملف XML من الجهاز", style = MaterialTheme.typography.titleMedium, color = c.text)
+                        Text("اختر ملفاً وسينشره التطبيق على «${pubSite.name}» (${pubModeLabel(pubSite.pubMode)}).", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    }
+                }
+            }
+        }
         if (files.isNotEmpty()) {
             item("fh") { Text("ملفاتي المصدّرة (${files.size})".replace(Regex("\\d+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.titleMedium, color = c.text) }
             items(files.size, key = { "f" + files[it].name }) { i ->
@@ -190,6 +236,7 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FileAction("مشاركة", Icons.Export) { vm.open(ctx, f.name, false) }
                             FileAction("فتح", Icons.Document) { vm.open(ctx, f.name, true) }
+                            FileAction("نشر", Icons.Link) { vm.publishFile(f.name) }
                             FileAction(if (confirm == f.name) "تأكيد الحذف" else "حذف", Icons.Trash, danger = true) { if (confirm == f.name) { vm.delete(f.name); confirm = null } else confirm = f.name }
                         }
                     }
@@ -228,5 +275,40 @@ private fun FileAction(text: String, icon: androidx.compose.ui.graphics.vector.I
     Row(Modifier.heightIn(min = 44.dp).clickable(onClick = onClick).padding(horizontal = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         androidx.compose.material3.Icon(icon, null, Modifier.size(18.dp), tint = tint)
         Text(text, style = MaterialTheme.typography.labelLarge, color = tint)
+    }
+}
+
+internal fun pubModeLabel(m: String) = when (m) { "script" -> "جسر Apps Script"; "google" -> "حساب جوجل"; else -> "النشر المباشر متوقف" }
+
+@Composable
+private fun PublishCard(ui: com.sajed.articlestudio.engine.ExportManager.PubUi, onConsent: (android.content.IntentSender) -> Unit, onDismiss: () -> Unit) {
+    val c = AppTheme.colors
+    val r = ui.report
+    Panel(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (ui.running) {
+                Text("النشر على بلوجر", style = MaterialTheme.typography.titleMedium, color = c.text)
+                androidx.compose.material3.LinearProgressIndicator(progress = { if (ui.total > 0) ui.done.toFloat() / ui.total else 0f }, Modifier.fillMaxWidth().height(8.dp), color = c.goldText, trackColor = c.line)
+                Text("${ui.done} / ${ui.total}".ltr(), style = MaterialTheme.typography.labelMedium, color = c.muted)
+            } else if (r != null) {
+                val good = r.fatal == null && r.failed.isEmpty() && r.ok > 0
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(if (good) Icons.Check else Icons.Warning, null, Modifier.size(24.dp), tint = if (good) c.ok else c.goldText)
+                    Text(
+                        when {
+                            r.ok > 0 -> "نُشر ${r.ok.toString().ltr()} ${when (r.state) { com.sajed.articlestudio.engine.PubState.Draft -> "كمسودة"; com.sajed.articlestudio.engine.PubState.Live -> "مباشرة"; else -> "بجدولة" }}"
+                            r.fatal != null -> "توقف النشر"
+                            else -> "لا جديد للنشر"
+                        }, style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f),
+                    )
+                    androidx.compose.material3.Icon(Icons.Close, "إخفاء", Modifier.size(44.dp).clickable(onClick = onDismiss).padding(12.dp), tint = c.muted)
+                }
+                if (r.skipped > 0) Text("تخطّى ${r.skipped.toString().ltr()} منشوراً سابقاً.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                r.fatal?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = c.red) }
+                r.failed.take(4).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = c.red, maxLines = 3) }
+                if (r.ok > 0 && r.state == com.sajed.articlestudio.engine.PubState.Draft) Text("افتح بلوجر ← المنشورات ← المسودات لمراجعتها ونشرها.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                r.consent?.let { FileAction("ربط حساب جوجل والمتابعة", Icons.Link) { onConsent(it) } }
+            }
+        }
     }
 }

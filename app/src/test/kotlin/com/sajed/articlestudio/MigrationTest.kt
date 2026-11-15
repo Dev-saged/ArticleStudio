@@ -38,4 +38,13 @@ class MigrationTest {
         db.query("SELECT site_id, quality FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("default", it.getString(0)); assertEquals(0, it.getInt(1)) }
         db.query("SELECT site_id FROM jobs").use { it.moveToFirst(); assertEquals("default", it.getString(0)) }
     }
+
+    @Test fun migrate3To4AddsRemoteUrl() {
+        helper.createDatabase("t4", 3).apply {
+            execSQL("INSERT INTO articles (job_id, idx, title, slug, labels, status, words, provider, html, error, updated_at, data, site_id, quality) VALUES (1, 0, 'عنوان', 's', '', 'exported', 700, 'g', '', '', 1, '{}', 'default', 50)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("t4", 4, true, *Migrations.ALL)
+        db.query("SELECT remote_url, quality FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("", it.getString(0)); assertEquals(50, it.getInt(1)) }
+    }
 }

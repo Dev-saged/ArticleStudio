@@ -40,7 +40,7 @@ class ExportUi(
 class ExportManager @Inject constructor(
     @ApplicationContext private val ctx: Context, private val arts: ArticleDao, private val renderer: ImageRenderer,
     private val gh: GitHubClient, private val cfg: GitHubSettings, private val history: HistoryStore, private val blog: BlogIndex,
-    private val sites: SiteStore,
+    private val sites: SiteStore, private val publisher: PublishManager,
 ) {
     private val dir get() = File(ctx.filesDir, "exports").apply { mkdirs() }
     private val _ui = MutableStateFlow(ExportUi())
@@ -48,7 +48,38 @@ class ExportManager @Inject constructor(
     private val _files = MutableStateFlow<List<ExportFile>>(emptyList())
     val files: StateFlow<List<ExportFile>> = _files.asStateFlow()
 
+    /** حالة النشر المباشر المنفصلة عن مراحل التصدير. */
+    class PubUi(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val report: PublishReport? = null, val siteId: String = "")
+    private val _pub = MutableStateFlow(PubUi())
+    val pub: StateFlow<PubUi> = _pub.asStateFlow()
+    private var pending: Pair<String, List<PublishEntry>>? = null
+
     init { refreshFiles() }
+
+    private suspend fun runPublish(siteId: String, entries: List<PublishEntry>): PublishReport {
+        _pub.value = PubUi(true, 0, entries.size, siteId = siteId)
+        val r = try { publisher.publish(siteId, entries) { d, t -> _pub.value = PubUi(true, d, t, siteId = siteId) } }
+        catch (e: CancellationException) { throw e } catch (e: Exception) { PublishReport(fatal = clamp(e.message, 140)) }
+        pending = if (r.consent != null || r.fatal != null) siteId to entries else null
+        _pub.value = PubUi(false, r.total, r.total, r, siteId)
+        return r
+    }
+
+    /** إعادة محاولة آخر نشر توقّف لانتظار ربط الحساب أو لخطأ صلاحية. */
+    suspend fun retryPublish() = withContext(Dispatchers.Default) { pending?.let { (sid, e) -> runPublish(sid, e) } }
+
+    suspend fun publishFile(siteId: String, name: String) = withContext(Dispatchers.Default) {
+        val f = File(dir, name).takeIf { it.exists() && it.parentFile == dir } ?: return@withContext
+        publishText(siteId, f.readText())
+    }
+
+    suspend fun publishText(siteId: String, xml: String) = withContext(Dispatchers.Default) {
+        val items = try { XmlImport.parse(xml) } catch (e: Exception) { _pub.value = PubUi(report = PublishReport(fatal = "الملف ليس XML صالحاً بصيغة بلوجر"), siteId = siteId); return@withContext }
+        if (items.isEmpty()) { _pub.value = PubUi(report = PublishReport(fatal = "لا تدوينات داخل الملف"), siteId = siteId); return@withContext }
+        runPublish(siteId, items.map { PublishEntry(it) })
+    }
+
+    fun clearPub() { _pub.value = PubUi(); pending = null }
 
     fun refreshFiles() {
         _files.value = (dir.listFiles() ?: emptyArray()).filter { it.extension == "xml" }.sortedByDescending { it.lastModified() }
@@ -95,9 +126,12 @@ class ExportManager @Inject constructor(
             File(dir, name).writeText(xml)
             saveDownload(name, "text/xml", xml.toByteArray(), folder)
             arts.markExported(rows.map { it.id }, System.currentTimeMillis())
+            val pubEntries = if (publisher.enabled(site) && auto) runCatching { XmlImport.parse(xml) }.getOrDefault(emptyList()).let { items -> items.mapIndexed { i, it -> PublishEntry(it, rows.getOrNull(i)?.takeIf { items.size == rows.size }?.id) } } else emptyList()
             history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } }, site.id)
             refreshFiles()
             _ui.value = ExportUi(false, summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }, name.removeSuffix(".xml")))
+            if (pubEntries.isNotEmpty()) runPublish(site.id, pubEntries)
+            else if (publisher.enabled(site)) _pub.value = PubUi(report = PublishReport(fatal = "النشر المباشر يتطلب رفع الصور تلقائياً؛ فعّل «الرفع التلقائي» أو انشر الملف المحفوظ لاحقاً"), siteId = site.id)
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             _ui.value = ExportUi(false, error = clamp(e.message, 160), summary = _ui.value.summary)
         }
