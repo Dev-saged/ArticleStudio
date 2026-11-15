@@ -31,7 +31,7 @@ data class JobUi(
 @Singleton
 class JobRunner @Inject constructor(
     private val gen: Generator, private val jobs: JobDao, private val arts: ArticleDao,
-    private val bus: RunBus, private val live: LiveStatus,
+    private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _state = MutableStateFlow(JobUi())
@@ -102,7 +102,9 @@ class JobRunner @Inject constructor(
             var topics = if (job.topics.isEmpty()) emptyList() else AppJson.decodeFromString(topicsSer, job.topics)
             if (topics.isEmpty()) {
                 bus.log("تخطيط المواضيع…"); live.set("تخطيط المواضيع…")
-                topics = gen.plan(job.total, PlanMode.valueOf(job.mode), job.custom)
+                val n = blog.refresh()
+                if (n > 0) bus.log("فهرس المدونة: $n مقالاً منشوراً سيُتجنَّب تكراره") else bus.log("تعذّر قراءة مقالات المدونة، سيُعتمد على السجل المحلي", "w")
+                topics = gen.plan(job.total, PlanMode.valueOf(job.mode), job.custom, blog.titles() + arts.titles())
                 job = job.copy(topics = AppJson.encodeToString(topicsSer, topics), total = topics.size, next = 0)
                 jobs.upsert(job)
                 bus.log("الخطة جاهزة: ${topics.size} مواضيع", "o")
@@ -115,7 +117,9 @@ class JobRunner @Inject constructor(
                 var ok = false
                 try {
                     val a = gen.article(t)
-                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Article.serializer(), a)))
+                    val dup = blog.similar(a.title)
+                    if (dup != null) bus.log("تنبيه: عنوان قريب من مقال منشور «${clamp(dup.title, 40)}»", "w")
+                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, error = dup?.let { "قريب من: " + clamp(it.title, 60) }.orEmpty(), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Article.serializer(), a)))
                     bus.log("تم: ${a.words} كلمة عبر ${a.provider}", "o"); ok = true
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     bus.log("فشل الموضوع: " + clamp(e.message, 70), "e")

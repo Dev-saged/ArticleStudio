@@ -75,11 +75,11 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
     }
 
     /** إيداع واحد لكل الصور على فرع مخصص؛ يعيد الرابط الأساسي المثبّت بمعرّف الإيداع عبر jsDelivr. */
-    suspend fun pushImages(files: List<ImageFile>, step: (String) -> Unit): String {
+    suspend fun pushImages(files: List<ImageFile>, step: (String, Int, Int) -> Unit): String {
         val (o, r) = ownerRepo()
         val br = cfg.branch.ifBlank { "blog-images" }
         val enc = URLEncoder.encode(br, "UTF-8")
-        step("تجهيز الفرع")
+        step("تجهيز الفرع", 0, files.size)
         val ref = try { gh("/repos/$o/$r/git/ref/heads/$enc", what = "قراءة الفرع") } catch (e: GitHubException) {
             if (e.status != 404) throw e
             val info = gh("/repos/$o/$r", what = "قراءة المستودع")
@@ -95,9 +95,9 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
                 put("content", Base64.getEncoder().encodeToString(f.bytes)); put("encoding", "base64")
             }, "رفع صورة")
             tree += "images/articles/${f.name}" to bl.str("sha")
-            step("رفع الصور ${i + 1}/${files.size}")
+            step("رفع الصور", i + 1, files.size)
         }
-        step("إنشاء الإيداع")
+        step("إنشاء الإيداع", files.size, files.size)
         val t = gh("/repos/$o/$r/git/trees", "POST", buildJsonObject {
             put("base_tree", pc.str("tree", "sha"))
             put("tree", buildJsonArray { tree.forEach { (p, s) -> add(buildJsonObject { put("path", p); put("mode", "100644"); put("type", "blob"); put("sha", s) }) } })

@@ -80,9 +80,9 @@ ${words(30)}
         store.save("pollinations", "", "", "", false)
         store.save("custom", "m", server.url("/v1").toString().trimEnd('/'), "k", true)
         val http = OkHttpClient(); val bus = RunBus()
-        val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx))
+        val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus())
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http))
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }

@@ -126,12 +126,30 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                 )
             }
         }
+        if (s.running && s.phase.isNotEmpty()) item("now") {
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("يعمل الآن", style = MaterialTheme.typography.labelMedium, color = c.red)
+                    Text(s.phase, style = MaterialTheme.typography.bodyMedium, color = c.text, maxLines = 2)
+                }
+            }
+        }
         item("mode") {
             Row(Modifier.stagger(4).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppChip("أخبار حية", s.mode == PlanMode.News, { vm.setMode(PlanMode.News) }, Modifier.weight(1f))
                 AppChip("مواضيع دائمة", s.mode == PlanMode.Evergreen, { vm.setMode(PlanMode.Evergreen) }, Modifier.weight(1f))
                 AppChip("مواضيعي", s.mode == PlanMode.Mine, { vm.setMode(PlanMode.Mine) }, Modifier.weight(1f))
             }
+        }
+        item("help") {
+            Text(
+                when (s.mode) {
+                    PlanMode.News -> "يجمع أخباراً حديثة من عدة مصادر عربية وعالمية ويدمجها في مقال واحد بصياغة جديدة، مع تركيز على الكرة العربية."
+                    PlanMode.Evergreen -> "شروحات وتحليلات لا تقادم لها: قواعد، تكتيك، أدلة للمشجع."
+                    PlanMode.Mine -> "اكتب مواضيعك وسيكتب لكل سطر مقالاً كاملاً."
+                } + if (s.blogCount > 0) " يتجنّب تكرار ${s.blogCount.toString().ltr()} مقالاً منشوراً في مدونتك." else "",
+                style = MaterialTheme.typography.bodySmall, color = c.muted,
+            )
         }
         if (s.mode == PlanMode.Mine) item("custom") {
             OutlinedTextField(

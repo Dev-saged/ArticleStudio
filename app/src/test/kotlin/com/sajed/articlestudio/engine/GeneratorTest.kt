@@ -84,7 +84,7 @@ ${words(40)}
         store.save("custom", "m", server.url("/v1").toString().trimEnd('/'), "k", true)
         val http = OkHttpClient()
         val bus = RunBus()
-        gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx))
+        gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
     }
 
     @After fun tearDown() = server.shutdown()

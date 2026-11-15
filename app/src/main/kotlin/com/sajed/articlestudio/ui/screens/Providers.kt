@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -69,7 +70,7 @@ data class ProviderUi(
 
 @HiltViewModel
 class ProvidersViewModel @Inject constructor(
-    private val store: ProviderStore, private val engine: ProviderEngine, private val health: HealthStore,
+    private val store: ProviderStore, private val engine: ProviderEngine, private val health: HealthStore, private val backup: com.sajed.articlestudio.data.KeyBackup,
 ) : ViewModel() {
     private val _list = MutableStateFlow(load(emptyMap()))
     val list: StateFlow<List<ProviderUi>> = _list.asStateFlow()
@@ -105,8 +106,13 @@ class ProvidersViewModel @Inject constructor(
         }
     }
 
-    fun exportKeys() = store.exportKeys()
-    fun importKeys(text: String) { val n = try { store.importKeys(text) } catch (e: SecretException) { _note.value = e.message.orEmpty(); reload(); return }; _note.value = if (n > 0) "استُورد $n مفتاحاً" else "لا مفاتيح صالحة في الحافظة"; reload() }
+    fun exportText() = backup.export()
+    fun importText(text: String) { _note.value = backup.import(text).message(); reload() }
+    fun note(m: String) { _note.value = m }
+    fun setEnabled(id: String, on: Boolean) {
+        try { store.save(id, store.model(id), store.base(id), "", on) } catch (e: SecretException) { _note.value = e.message.orEmpty() }
+        engine.resetCooldown(id); reload()
+    }
     fun clearNote() { _note.value = "" }
 }
 
@@ -120,21 +126,67 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
     val c = AppTheme.colors
     val ctx = LocalContext.current
     var editing by remember { mutableStateOf<ProviderUi?>(null) }
+    val sorted = remember(list) { list.sortedWith(compareBy({ if (it.ready) 0 else if (it.enabled && it.spec.needsKey) 1 else 2 }, { ProviderCatalog.all.indexOf(it.spec) })) }
+    val importPick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val t = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().takeIf { b -> b.size <= 1_000_000 }?.toString(Charsets.UTF_8) } }.getOrNull()
+            if (t == null) vm.note("تعذّرت قراءة الملف أو أنه كبير جداً.") else vm.importText(t)
+        }
+    }
+    val exportPick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            val ok = runCatching { ctx.contentResolver.openOutputStream(uri)?.use { it.write(vm.exportText().toByteArray()) } }.isSuccess
+            vm.note(if (ok) "حُفظ الملف؛ يحوي مفاتيحك فلا تشاركه." else "تعذّر حفظ الملف.")
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item("t") { Text("المزودون", style = MaterialTheme.typography.headlineLarge, color = c.text) }
-        item("h") { Text("المفاتيح مشفّرة على الجهاز ولا تغادره إلا نحو المزود نفسه. إن تعثّر مزود ينتقل التوليد تلقائياً إلى التالي.", style = MaterialTheme.typography.bodyMedium, color = c.muted) }
-        items(list, key = { it.spec.id }) { p ->
+        item("sum") {
+            val ready = list.count { it.ready }
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (ready == 0) "لا مزود جاهز بعد" else "${ready.toString().ltr()} من ${list.size.toString().ltr()} مزوداً جاهزاً", style = MaterialTheme.typography.titleMedium, color = if (ready == 0) c.red else c.text)
+                    Text(if (ready == 0) "استورد ملف مفاتيحك من الموقع القديم أو أضف مفتاحاً مجانياً لأحد المزودين." else "إن تعثّر مزود انتقل التوليد تلقائياً إلى التالي. المفاتيح مشفّرة على الجهاز.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                }
+            }
+        }
+        item("tools") {
+            Panel(Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("نسخ المفاتيح الاحتياطي", style = MaterialTheme.typography.titleSmall, color = c.text, modifier = Modifier.padding(top = 4.dp))
+                    ToolRow("استيراد من ملف (من الموقع أو من التطبيق)", Icons.Plus) { importPick.launch(arrayOf("*/*")) }
+                    ToolRow("لصق من الحافظة", Icons.Copy) {
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        vm.importText(cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty())
+                    }
+                    ToolRow("تصدير إلى ملف", Icons.Export) { exportPick.launch("article-studio-keys.json") }
+                    ToolRow("نسخ إلى الحافظة", Icons.Copy) {
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("keys", vm.exportText())); vm.note("نُسخ النص؛ يحوي مفاتيحك فاحفظه في مكان آمن.")
+                    }
+                    ToolRow("استثناء التطبيق من توفير البطارية", Icons.Settings) {
+                        runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }
+                    if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.bodySmall, color = c.goldText, modifier = Modifier.padding(vertical = 6.dp))
+                }
+            }
+        }
+        items(sorted, key = { it.spec.id }) { p ->
             Panel(Modifier.fillMaxWidth().clickable { editing = p }) {
-                Column(Modifier.padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.size(10.dp).background(if (!p.enabled) c.line else if (p.ready) c.ok else c.red, CircleShape))
                         Column(Modifier.weight(1f)) {
                             Text(p.spec.name, style = MaterialTheme.typography.titleMedium, color = c.text)
                             Text(p.spec.hint, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 2)
                         }
-                        Text(when { !p.enabled -> "متوقف"; !p.spec.needsKey -> "بلا مفتاح"; p.hasKey -> "مفتاح محفوظ"; else -> "يحتاج مفتاحاً" }, style = MaterialTheme.typography.labelSmall, color = c.muted)
-                        Icon(Icons.Edit, "تعديل", Modifier.size(20.dp), tint = c.muted)
+                        androidx.compose.material3.Switch(checked = p.enabled, onCheckedChange = { vm.setEnabled(p.spec.id, it) })
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(when { !p.spec.needsKey -> "بلا مفتاح"; p.hasKey -> "مفتاح محفوظ"; else -> "يحتاج مفتاحاً" }, style = MaterialTheme.typography.labelMedium, color = if (p.spec.needsKey && !p.hasKey && p.enabled) c.red else c.muted, modifier = Modifier.weight(1f))
+                        if (p.spec.link.isNotEmpty()) MiniAction("احصل على المفتاح", Icons.Link) { open(ctx, p.spec.link) }
+                        if (p.ready) MiniAction(if (p.testing) "جارٍ…" else "اختبار", Icons.Refresh) { if (!p.testing) vm.test(p.spec.id) }
                     }
                     if (p.ok + p.fail > 0 || p.last.isNotEmpty() || p.testMsg.isNotEmpty()) {
                         Text(
@@ -145,24 +197,6 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                             style = MaterialTheme.typography.bodySmall, color = if (p.last.isNotEmpty() && p.testMsg.isEmpty()) c.red else c.muted,
                         )
                     }
-                }
-            }
-        }
-        item("tools") {
-            Panel(Modifier.fillMaxWidth()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ToolRow("نسخ المفاتيح إلى الحافظة", Icons.Copy) {
-                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        cm.setPrimaryClip(ClipData.newPlainText("keys", vm.exportKeys()))
-                    }
-                    ToolRow("استيراد المفاتيح من الحافظة", Icons.Plus) {
-                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        vm.importKeys(cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty())
-                    }
-                    ToolRow("استثناء التطبيق من توفير البطارية", Icons.Settings) {
-                        runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    }
-                    if (note.isNotEmpty()) Text(note, style = MaterialTheme.typography.bodySmall, color = c.goldText, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
@@ -182,6 +216,13 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                     Text("احصل على مفتاح مجاني", style = MaterialTheme.typography.labelLarge, color = c.goldText)
                 }
                 SchemaForm(schema, values, errors) { k, v -> values = values + (k to v) }
+                if (p.spec.needsKey) Row(Modifier.heightIn(min = 44.dp).clickable {
+                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.primaryClip?.getItemAt(0)?.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { values = values + ("key" to it) }
+                }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Copy, null, Modifier.size(20.dp), tint = c.goldText)
+                    Text("لصق المفتاح من الحافظة", style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                }
                 if (p.hasKey) Text("يوجد مفتاح محفوظ؛ اتركه فارغاً للإبقاء عليه.", style = MaterialTheme.typography.bodySmall, color = c.muted)
                 PrimaryButton("حفظ", Icons.Check, {
                     errors = SchemaRules.validate(schema, values)
@@ -208,3 +249,12 @@ private fun ToolRow(text: String, icon: androidx.compose.ui.graphics.vector.Imag
 }
 
 private fun Modifier.defaultMin() = this.then(Modifier.padding(vertical = 12.dp))
+
+@Composable
+private fun MiniAction(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    val c = AppTheme.colors
+    Row(Modifier.heightIn(min = 44.dp).clickable(onClick = onClick).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, null, Modifier.size(16.dp), tint = c.goldText)
+        Text(text, style = MaterialTheme.typography.labelMedium, color = c.goldText)
+    }
+}

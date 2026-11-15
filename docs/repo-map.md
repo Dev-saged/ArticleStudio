@@ -11,6 +11,9 @@
 - التنقل + الشريط الحي → `ui/nav/AppNav.kt`
 - محرك المخططات (نماذج/قوائم) → `schema/Schema.kt`، `schema/Engine.kt` → `Schemas`
 - Room v2 + ترحيلات → `data/Db.kt`، `data/Entities.kt` → `Migrations`
+- استيراد/تصدير المفاتيح بصيغة الموقع → `data/KeyBackup.kt` → `KeyBackup.parse`
+- فهرس المدونة (منع التكرار) → `engine/BlogIndex.kt`؛ مصادر الأخبار → `engine/NewsSources.kt`
+- تسمية الملفات العربية → `engine/ExportNaming.kt`
 - المزودون والمفاتيح والصحة → `data/Providers.kt`، `data/SecretStore.kt`، `data/Stores.kt`
 - التبديل التلقائي بين المزودين → `engine/ProviderEngine.kt` → `chat`
 - تخطيط وكتابة المقال بمرحلتين → `engine/Generator.kt` → `article`، `plan`
@@ -28,7 +31,11 @@
 - الصور تُرفع بإيداع واحد لفرع `blog-images` وتُثبَّت الروابط بمعرّف الإيداع عبر jsDelivr.
 - رقم البناء = `GITHUB_RUN_NUMBER`، وتاج الإصدار `vX.Y.Z-bN` لفحص التحديث.
 
+- تشابه العناوين: ≥3 كلمات مشتركة وتغطية 0.8 أو جاكارد 0.6 (`similarTitles`)؛ العتبة الأدنى قبلت «يفوز على X» مقابل «يفوز على Y».
+- التصدير بمراحل (4) وشريط واحد؛ `pushImages(step(text,i,n))`.
+
 ## Solved bugs (never reintroduce)
+- وصف RSS مهرّب (`&lt;p&gt;`): فك الكيانات قبل إزالة الوسوم ثم بعدها. `NewsSources.clean`.
 - نص SVG: قراءة سمات `<text>` بعد `nextText()` تعيد null (تُقرأ قبله). `SvgDraw.render`.
 - الأرقام معكوسة في الصور: `drawTextRun(rtl=true)` يفرض RTL على الأرقام؛ نستخدم `drawText` مع RLM. `ImageRenderer.textR`.
 - تداخل الرقم مع التسمية في بطاقة المعلومات: قياسات `card()` (84/70/56/46).
