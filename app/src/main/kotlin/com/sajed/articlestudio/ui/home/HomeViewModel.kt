@@ -48,7 +48,6 @@ data class HomeUiState(
     val avgWords: Int = 0,
     val notice: String = "",
     val logs: List<LogLine> = emptyList(),
-    val updateUrl: String? = null,
     val phase: String = "",
     val blogCount: Int = 0,
 ) {
@@ -60,7 +59,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val runner: JobRunner, private val bus: RunBus, private val engine: ProviderEngine,
-    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, arts: ArticleDao, @ApplicationContext private val ctx: Context,
+    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, arts: ArticleDao, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
     private val inputs = MutableStateFlow(Triple(10, PlanMode.News, "") to "")
     private val _ui = MutableStateFlow(HomeUiState())
@@ -70,10 +69,8 @@ class HomeViewModel @Inject constructor(
     private var lastPassId = 0
     private var currentPass: BallPass? = null
 
-    @Volatile private var updateUrl: String? = null
-
     init {
-        viewModelScope.launch { gh.latestRelease(BrandConfig.UPDATE_REPO)?.let { (n, url) -> if (n > BuildConfig.VERSION_CODE) updateUrl = url } }
+        updater.check(auto = true)
         viewModelScope.launch { arts.observeAll().collect { articles = it } }
         viewModelScope.launch { runCatching { blog.refresh() } }
         viewModelScope.launch {
@@ -111,7 +108,7 @@ class HomeViewModel @Inject constructor(
             total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
             done = job.done, failed = job.failed, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
             pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
-            avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), updateUrl = updateUrl, phase = job.phase, blogCount = blog.count,
+            avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count,
         )
     }
 

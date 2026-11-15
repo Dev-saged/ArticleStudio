@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
                 val dark = AppTheme.colors.isDark
                 DisposableEffect(dark) {
                     enableEdgeToEdge(
-                        statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                        statusBarStyle = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
                         navigationBarStyle = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
                     )
                     onDispose {}

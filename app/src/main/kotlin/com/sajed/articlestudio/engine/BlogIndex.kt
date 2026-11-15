@@ -20,7 +20,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Serializable
-class BlogPost(val title: String, val slug: String)
+class BlogPost(val title: String, val slug: String, val path: String = "")
 
 /** فهرس مقالات المدونة المنشورة (من تغذية بلوجر العامة) لمنع تكرار العناوين والروابط. */
 @Singleton
@@ -32,6 +32,7 @@ class BlogIndex @Inject constructor(@ApplicationContext c: Context, private val 
 
     val count get() = posts.size
     fun titles() = posts.map { it.title }
+    fun all(): List<BlogPost> = posts
     fun slugs() = posts.map { it.slug }.toSet()
     fun similar(title: String): BlogPost? = posts.firstOrNull { similarTitles(title, it.title) }
 
@@ -67,7 +68,7 @@ class BlogIndex @Inject constructor(@ApplicationContext c: Context, private val 
             val title = o["title"]?.jsonObject?.get("\$t")?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             val href = o["link"]?.jsonArray?.firstOrNull { it.jsonObject["rel"]?.jsonPrimitive?.contentOrNull == "alternate" }
                 ?.jsonObject?.get("href")?.jsonPrimitive?.contentOrNull.orEmpty()
-            BlogPost(title.trim(), href.substringAfterLast('/').removeSuffix(".html"))
+            BlogPost(title.trim(), href.substringAfterLast('/').removeSuffix(".html"), runCatching { java.net.URI(href).path.orEmpty() }.getOrDefault(""))
         }
     }
 }

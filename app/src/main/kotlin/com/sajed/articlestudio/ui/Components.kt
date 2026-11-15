@@ -105,7 +105,7 @@ fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 fun LiveBar(text: String) {
     val red = remember { com.sajed.articlestudio.BrandConfig.light.red.toColor() }
     Row(
-        Modifier.fillMaxWidth().background(red).statusBarsPadding().padding(horizontal = 18.dp, vertical = 7.dp),
+        Modifier.fillMaxWidth().background(red).padding(horizontal = 18.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.background(Color.White, RoundedCornerShape(5.dp)).padding(horizontal = 8.dp, vertical = 1.dp)) {

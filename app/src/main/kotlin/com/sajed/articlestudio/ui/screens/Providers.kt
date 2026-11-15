@@ -71,6 +71,7 @@ data class ProviderUi(
 @HiltViewModel
 class ProvidersViewModel @Inject constructor(
     private val store: ProviderStore, private val engine: ProviderEngine, private val health: HealthStore, private val backup: com.sajed.articlestudio.data.KeyBackup,
+    val updater: com.sajed.articlestudio.engine.Updater,
 ) : ViewModel() {
     private val _list = MutableStateFlow(load(emptyMap()))
     val list: StateFlow<List<ProviderUi>> = _list.asStateFlow()
@@ -165,6 +166,7 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         cm.setPrimaryClip(ClipData.newPlainText("keys", vm.exportText())); vm.note("نُسخ النص؛ يحوي مفاتيحك فاحفظه في مكان آمن.")
                     }
+                    ToolRow("التحقق من التحديث (الإصدار ${vm.updater.current})", Icons.Refresh) { vm.updater.check() }
                     ToolRow("استثناء التطبيق من توفير البطارية", Icons.Settings) {
                         runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     }
@@ -172,6 +174,7 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                 }
             }
         }
+        item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater, showCurrent = true) }
         items(sorted, key = { it.spec.id }) { p ->
             Panel(Modifier.fillMaxWidth().clickable { editing = p }) {
                 Column(Modifier.padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

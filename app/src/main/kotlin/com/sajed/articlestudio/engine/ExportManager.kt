@@ -29,7 +29,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import javax.xml.parsers.DocumentBuilderFactory
 
-class ExportSummary(val name: String, val articles: Int, val images: Int, val pushed: Boolean, val titles: List<String>)
+class ExportSummary(val name: String, val articles: Int, val images: Int, val pushed: Boolean, val titles: List<String>, val folder: String = "")
 class ExportFile(val name: String, val size: Long, val modified: Long, val articles: Int)
 class ExportUi(
     val running: Boolean = false, val stage: String = "", val stageIdx: Int = 0, val stageCount: Int = 0,
@@ -68,6 +68,8 @@ class ExportManager @Inject constructor(
             if (auto) { if (cfg.token.isEmpty()) throw IllegalStateException("أدخل GitHub Token أو عطّل الرفع التلقائي"); stage("فحص صلاحيات GitHub", 1, count); gh.check() }
             val parsed = rows.map { it to AppJson.decodeFromString(Article.serializer(), it.data) }
             val list = XmlBuilder.assignSlugs(parsed.map { it.second }, history.load().slugs.toSet() + blog.slugs())
+            val name = ExportNaming.fileName(list.size, LocalDate.now()) { File(dir, it).exists() }
+            val folder = "Download/ArticleStudio/" + name.removeSuffix(".xml")
             val files = ArrayList<ImageFile>()
             list.forEachIndexed { i, a ->
                 stage("رسم الصور", 2, count, i, list.size)
@@ -79,18 +81,18 @@ class ExportManager @Inject constructor(
                 stage("تجميع ZIP", 3, count)
                 base = "https://cdn.jsdelivr.net/gh/${cfg.repo}@${cfg.branch.ifBlank { "main" }}/images/articles/"
                 val zip = ByteArrayOutputStream().also { bo -> ZipOutputStream(bo).use { z -> files.forEach { f -> z.putNextEntry(ZipEntry(f.name)); z.write(f.bytes); z.closeEntry() } } }.toByteArray()
-                saveDownload("images-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")) + ".zip", "application/zip", zip)
+                saveDownload("images.zip", "application/zip", zip, folder)
             }
             stage("بناء XML وحفظه", 4, count)
-            val xml = XmlBuilder.build(list, base, cfg.scheduleHours)
+            files.forEach { f -> saveDownload(f.name, "image/jpeg", f.bytes, "$folder/images") }
+            val xml = XmlBuilder.build(list, base, cfg.scheduleHours, blog = blog.all())
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
-            val name = ExportNaming.fileName(list.size, LocalDate.now()) { File(dir, it).exists() }
             File(dir, name).writeText(xml)
-            saveDownload(name, "text/xml", xml.toByteArray())
+            saveDownload(name, "text/xml", xml.toByteArray(), folder)
             arts.markExported(rows.map { it.id }, System.currentTimeMillis())
             history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } })
             refreshFiles()
-            _ui.value = ExportUi(false, summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }))
+            _ui.value = ExportUi(false, summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }, name.removeSuffix(".xml")))
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             _ui.value = ExportUi(false, error = clamp(e.message, 160), summary = _ui.value.summary)
         }
@@ -98,11 +100,11 @@ class ExportManager @Inject constructor(
 
     fun clearResult() { _ui.update { ExportUi(summary = null) } }
 
-    private fun saveDownload(name: String, mime: String, bytes: ByteArray) {
+    private fun saveDownload(name: String, mime: String, bytes: ByteArray, folder: String) {
         if (Build.VERSION.SDK_INT < 29) return
         val v = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name); put(MediaStore.Downloads.MIME_TYPE, mime)
-            put(MediaStore.Downloads.RELATIVE_PATH, "Download/ArticleStudio")
+            put(MediaStore.Downloads.RELATIVE_PATH, folder)
         }
         runCatching {
             val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: return

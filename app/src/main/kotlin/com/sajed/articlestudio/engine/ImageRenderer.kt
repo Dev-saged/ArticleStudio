@@ -64,12 +64,28 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         return out
     }
 
+    private fun stroke(w: Float, col: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = w; color = col; strokeCap = Paint.Cap.ROUND }
+
     private fun bgBase(c: Canvas, h: Float) {
-        val p = Paint().apply { shader = LinearGradient(0f, 0f, 1200f, 630f, intArrayOf(hsl(h, .45f, .20f), hsl(h + 24, .42f, .11f), hsl(h + 40, .38f, .08f)), floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP) }
-        c.drawRect(0f, 0f, 1200f, 630f, p)
-        val s = Paint().apply { color = Color.argb(9, 255, 255, 255) }
-        var x = 0f; while (x < 1200) { c.drawRect(x, 0f, x + 90, 630f, s); x += 180 }
+        c.drawRect(0f, 0f, 1200f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 1200f, 630f, intArrayOf(hsl(h, .50f, .22f), hsl(h + 24, .46f, .12f), hsl(h + 40, .42f, .06f)), floatArrayOf(0f, .6f, 1f), Shader.TileMode.CLAMP) })
+        // خطوط ملعب خافتة: خط المنتصف والدائرة ومنطقة الجزاء
+        val pl = stroke(3f, Color.argb(20, 255, 255, 255))
+        c.drawCircle(600f, 315f, 120f, pl); c.drawLine(600f, 0f, 600f, 630f, pl)
+        c.drawRect(1040f, 175f, 1200f, 455f, pl); c.drawRect(0f, 175f, 160f, 455f, pl)
+        // أشعة كشّافات ملعب
+        for ((x0, x1) in listOf(980f to 1200f, 760f to 940f)) {
+            val beam = android.graphics.Path().apply { moveTo(x0, 0f); lineTo(x1, 0f); lineTo(x1 - 520f, 630f); lineTo(x0 - 700f, 630f); close() }
+            c.drawPath(beam, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(x0, 0f, x0 - 400f, 630f, Color.argb(24, 255, 255, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP) })
+        }
+        // تظليل الحواف
+        c.drawRect(0f, 0f, 1200f, 630f, Paint().apply { shader = RadialGradient(600f, 315f, 760f, Color.TRANSPARENT, Color.argb(150, 0, 0, 0), Shader.TileMode.CLAMP) })
+        // إطار داخلي وزوايا ذهبية
+        c.drawRoundRect(RectF(22f, 22f, 1178f, 608f), 26f, 26f, stroke(2f, Color.argb(34, 255, 255, 255)))
+        val g = stroke(5f, gold)
+        c.drawLine(44f, 22f, 110f, 22f, g); c.drawLine(22f, 44f, 22f, 110f, g)
+        c.drawLine(1156f, 608f, 1090f, 608f, g); c.drawLine(1178f, 586f, 1178f, 520f, g)
         c.drawRect(1186f, 0f, 1200f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 0f, 630f, gold, goldB, Shader.TileMode.CLAMP) })
+        c.drawRect(0f, 622f, 1186f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 1200f, 0f, Color.TRANSPARENT, goldB, Shader.TileMode.CLAMP) })
     }
 
     private fun brandMark(c: Canvas, y: Float) {
@@ -77,6 +93,7 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         textR(c, BrandConfig.BLOG_NAME, 1130f, y, p)
         val w = width(BrandConfig.BLOG_NAME, p)
         c.drawCircle(1130f - w - 32, y - 11, 9f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B30"); setShadowLayer(14f, 0f, 0f, Color.argb(90, 255, 59, 48)) })
+        c.drawText(BrandConfig.BLOG_SITE.removePrefix("https://"), 70f, y, paint(bold, 24f, Color.argb(170, 255, 255, 255)))
     }
 
     private fun pill(c: Canvas, text: String, rightX: Float, y: Float, size: Float): Float {
@@ -97,17 +114,20 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         val motif = SvgDraw.render(data.motifs[a.motif] ?: data.motifs.getValue("ball"), 470, heavy)
         c.drawBitmap(motif, 55f, 80f, Paint(Paint.ANTI_ALIAS_FLAG).apply { setShadowLayer(34f, 0f, 22f, Color.argb(115, 0, 0, 0)) })
         motif.recycle()
+        c.drawCircle(290f, 315f, 250f, stroke(3f, Color.argb(120, 245, 165, 36)))
+        c.drawCircle(290f, 315f, 282f, stroke(2f, Color.argb(48, 245, 165, 36)))
         val ph = pill(c, iso(a.kicker), 1116f, 76f, 26f)
+        c.drawRoundRect(RectF(1116f - 130f, 76f + ph + 22f, 1116f, 76f + ph + 30f), 4f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(986f, 0f, 1116f, 0f, goldB, gold, Shader.TileMode.CLAMP) })
         val title = iso(a.title)
         var fs = if (title.length <= 30) 74f else if (title.length <= 44) 62f else 54f
         var lines: List<String>
         while (true) {
             lines = wrap(title, paint(heavy, fs), 620f)
-            if (lines.size * fs * 1.38f <= 360f || fs <= 36f) break
+            if (lines.size * fs * 1.38f <= 330f || fs <= 36f) break
             fs -= 4f
         }
         val tp = paint(heavy, fs).apply { setShadowLayer(22f, 0f, 4f, Color.argb(115, 0, 0, 0)) }
-        lines.forEachIndexed { i, l -> textR(c, l, 1116f, 76 + ph + 34 + fs * (1.1f + i * 1.38f), tp) }
+        lines.forEachIndexed { i, l -> textR(c, l, 1116f, 76 + ph + 58 + fs * (1.1f + i * 1.38f), tp) }
         brandMark(c, 586f)
     }
 
@@ -126,6 +146,7 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
             val r = RectF(x, y, x + cw, y + ch)
             c.drawRoundRect(r, 30f, 30f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(x, y, x + cw, y + ch, Color.argb(28, 255, 255, 255), Color.argb(10, 255, 255, 255), Shader.TileMode.CLAMP) })
             c.drawRoundRect(r, 30f, 30f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2f; color = Color.argb(36, 255, 255, 255) })
+            c.drawRoundRect(RectF(x + cw - 96f, y, x + cw - 30f, y + 5f), 3f, 3f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gold })
             val v = iso(f.v); val arabic = v.any { it in '؀'..'ۿ' }
             var fs = if (v.length <= 4) 84f else if (v.length <= 6) 70f else if (v.length <= 9) 56f else 46f
             if (arabic && v.length > 3) fs = minOf(fs, 48f)
