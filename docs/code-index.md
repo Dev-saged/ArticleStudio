@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 92 ملفاً · 8565 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 349 · Export.kt 315 · Publish.kt 272 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · HomeScreen.kt 215 · 4.json 209
+> 92 ملفاً · 8570 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 349 · Export.kt 315 · Publish.kt 275 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · HomeScreen.kt 215 · 4.json 209
 
 ### ./
 - CLAUDE.md (44)
@@ -87,7 +87,7 @@
 - Articles.kt (200): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
 - Export.kt (315): ExportViewModel, ExportScreen, pubModeLabel
 - Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
-- Publish.kt (272): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
+- Publish.kt (275): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (349): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
@@ -121,7 +121,7 @@
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### docs/
-- publishing.md (22)
+- publishing.md (24)
 - repo-map.md (47)
 ### tools/
 - repomap.py (146): files, symbols, build, main
