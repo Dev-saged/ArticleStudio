@@ -91,4 +91,23 @@ class V3Test {
         assertNull(merged.firstOrNull { it.url.endsWith("/3") })
         assertNotNull(merged.firstOrNull())
     }
+
+    @Test fun markdownTableBecomesHtmlTable() {
+        val h = toHtml("فقرة\n\n| النظام | الاستخدام |\n|---|---|\n| 4-3-3 | هجوم |\n| 4-4-2 | توازن |")
+        assertTrue(h.contains("<table") && h.contains("<th") && h.contains("4-4-2"))
+        assertFalse(h.contains("---"))
+    }
+
+    @Test fun seoBodyHasAnswerBoxFaqSchemaAndBlogLinks() {
+        val a = XmlBuilder.assignSlugs(listOf(sampleArticle()), emptySet()).first()
+        val blog = listOf(BlogPost("شرح نظام الفار في كرة القدم", "var", "/2026/10/var.html"), BlogPost("عنوان لا علاقة له أبداً", "x", "/2026/10/x.html"))
+        val xml = XmlBuilder.build(listOf(a), "b/", 0, blog = blog)
+        javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
+        val html = XmlBuilder.bodyHtml(a, listOf(a), "b/", "2026/11", blog)
+        assertTrue(html.contains("الجواب السريع"))
+        assertTrue(html.contains("\"@type\":\"FAQPage\""))
+        assertTrue(html.contains("<time datetime="))
+        assertTrue(html.contains("<h2>أبرز النقاط</h2>"))
+        assertFalse(html.contains("</script><script"))
+    }
 }

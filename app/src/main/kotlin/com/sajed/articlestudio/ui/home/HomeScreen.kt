@@ -100,16 +100,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                 IconBtn(if (isDark) Icons.Sun else Icons.Moon, "تبديل الوضع الفاتح والغامق", onToggleTheme)
             }
         }
-        s.updateUrl?.let { url ->
-            item("upd") {
-                Panel(Modifier.fillMaxWidth().clickable { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        androidx.compose.material3.Icon(Icons.Info, null, tint = c.goldText)
-                        Text("يتوفر إصدار أحدث. اضغط للتنزيل.", style = MaterialTheme.typography.bodyMedium, color = c.text, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
+        item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }
         item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
         item("stats") {
             Row(Modifier.stagger(2), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

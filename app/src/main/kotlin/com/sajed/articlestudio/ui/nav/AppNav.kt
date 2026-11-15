@@ -1,5 +1,16 @@
 package com.sajed.articlestudio.ui.nav
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -66,8 +77,10 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
     val ticker by live.text.collectAsStateWithLifecycle()
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
 
+    val edge = WindowInsets.systemBars.union(WindowInsets.displayCutout)
     AmbientBackground {
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxSize().imePadding().windowInsetsPadding(edge.only(WindowInsetsSides.Horizontal))) {
+            EdgeBar(top = true)
             LiveBar(ticker)
             NavHost(
                 nav, startDestination = "home", modifier = Modifier.weight(1f),
@@ -84,7 +97,7 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
             }
             if (route != TEST) {
                 Row(
-                    Modifier.fillMaxWidth().background(c.bg2).navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
+                    Modifier.fillMaxWidth().background(c.bg2).padding(horizontal = 8.dp, vertical = 6.dp),
                 ) {
                     TABS.forEach { t ->
                         val on = route == t.route
@@ -105,6 +118,19 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
                     }
                 }
             }
+            EdgeBar(top = false)
         }
+    }
+}
+
+/** شريط حافة صلب بارتفاع أشرطة النظام (الحالة/القطع في الأعلى، التنقل/الإيماءات في الأسفل) يحدد حدود التطبيق تلقائياً. */
+@Composable
+private fun EdgeBar(top: Boolean) {
+    val c = AppTheme.colors
+    val ins = if (top) WindowInsets.systemBars.union(WindowInsets.displayCutout) else WindowInsets.systemBars.union(WindowInsets.displayCutout)
+    Column(Modifier.fillMaxWidth()) {
+        if (!top) Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
+        Box(Modifier.fillMaxWidth().background(c.bg2).then(if (top) Modifier.windowInsetsTopHeight(ins) else Modifier.windowInsetsBottomHeight(ins)))
+        if (top) Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
     }
 }

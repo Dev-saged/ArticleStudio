@@ -109,17 +109,4 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
         gh("/repos/$o/$r/git/refs/heads/$enc", "PATCH", buildJsonObject { put("sha", c.str("sha")) }, "تحديث الفرع")
         return "https://cdn.jsdelivr.net/gh/$o/$r@${c.str("sha")}/images/articles/"
     }
-
-    /** أحدث إصدار منشور: (رقم البناء، رابط الصفحة) أو null. */
-    suspend fun latestRelease(repo: String): Pair<Int, String>? = runCatching {
-        val rq = Request.Builder().url("https://api.github.com/repos/$repo/releases/latest").header("Accept", "application/vnd.github+json")
-            .apply { if (cfg.token.isNotEmpty()) header("Authorization", "Bearer ${cfg.token}") }.build()
-        client.newCall(rq).await().use { r ->
-            if (!r.isSuccessful) return null
-            val j = json.parseToJsonElement(r.body?.string().orEmpty())
-            val tag = j.str("tag_name")
-            val n = Regex("-b(\\d+)$").find(tag)?.groupValues?.get(1)?.toIntOrNull() ?: return null
-            n to j.str("html_url")
-        }
-    }.getOrNull()
 }

@@ -169,7 +169,7 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
                     sm.titles.take(5).forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = c.text, maxLines = 2) }
                     if (sm.titles.size > 5) Text("و${sm.titles.size - 5} أخرى", style = MaterialTheme.typography.bodySmall, color = c.muted)
                     Text(sm.name.ltr(), style = MaterialTheme.typography.labelMedium, color = c.goldText)
-                    Text("حُفظ داخل التطبيق وفي التنزيلات ← ArticleStudio. في بلوجر: الإعدادات ← استيراد المحتوى.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    Text("المجلد: التنزيلات ← ArticleStudio ← ${sm.folder} (الـ XML والصور). في بلوجر: الإعدادات ← استيراد المحتوى.", style = MaterialTheme.typography.bodySmall, color = c.muted)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FileAction("مشاركة", Icons.Export) { vm.open(ctx, sm.name, false) }
                         FileAction("فتح", Icons.Document) { vm.open(ctx, sm.name, true) }
