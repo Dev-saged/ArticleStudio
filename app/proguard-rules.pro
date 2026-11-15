@@ -1,0 +1,4 @@
+-keepattributes *Annotation*,InnerClasses
+-keep,includedescriptorclasses class com.sajed.articlestudio.**$$serializer { *; }
+-keepclassmembers class com.sajed.articlestudio.** { *** Companion; }
+-keepclasseswithmembers class com.sajed.articlestudio.** { kotlinx.serialization.KSerializer serializer(...); }
