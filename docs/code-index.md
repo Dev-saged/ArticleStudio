@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 79 ملفاً · 6489 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 232 · Export.kt 231 · HomeScreen.kt 207 · Articles.kt 192 · 2.json 181 · ImageRenderer.kt 161
+> 83 ملفاً · 7382 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 340 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Export.kt 233 · HomeScreen.kt 215 · 3.json 202 · Articles.kt 200
 
 ### ./
 - CLAUDE.md (44)
@@ -24,61 +24,64 @@
 ### app/schemas/com.sajed.articlestudio.data.AppDb/
 - 1.json (139)
 - 2.json (181)
+- 3.json (202)
 ### app/src/main/
 - AndroidManifest.xml (41)
 ### app/src/main/assets/
 - studio-data.json (1)
 ### app/src/main/kotlin/com/sajed/articlestudio/
 - App.kt (8): App
-- BrandConfig.kt (41): BrandConfig
+- BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (75): ArticleDao, JobDao, Migrations, AppDb
-- Entities.kt (39): ArticleEntity, JobEntity
+- Db.kt (102): ArticleRow, ArticleDao, JobDao, Migrations, AppDb
+- Entities.kt (42): ArticleEntity, JobEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (57): ProviderSpec, ProviderCatalog, ProviderStore
-- SecretStore.kt (63): SecretException, SecretStore
-- Stores.kt (71): Health, HealthStore, History, HistoryStore, GitHubSettings
+- SecretStore.kt (66): SecretException, SecretStore
+- Stores.kt (72): Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
 - Modules.kt (29): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
-- BlogIndex.kt (75): BlogPost, BlogIndex
-- ExportManager.kt (124): ExportSummary, ExportFile, ExportUi, ExportManager
+- BlogIndex.kt (81): BlogPost, BlogIndex
+- ExportManager.kt (129): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (102): GenerationService
-- Generator.kt (232): PlanMode, Generator
+- Generator.kt (238): PlanMode, Generator
 - GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
-- ImageRenderer.kt (161): RenderedImages, ImageRenderer
-- JobRunner.kt (148): JobUi, JobRunner
+- ImageRenderer.kt (165): RenderedImages, ImageRenderer
+- JobRunner.kt (150): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
-- NewsSources.kt (106): NewsSources
+- NewsSources.kt (105): Feed, feedsFor, NewsSources
 - ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
 - RunBus.kt (46): LogLine, PassEvent, RunBus
+- Site.kt (166): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (129): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
 - Updater.kt (140): UpdateInfo, UpdatePhase, UpdateUi, Updater
-- XmlBuilder.kt (109): XmlBuilder
+- XmlBuilder.kt (110): XmlBuilder
 ### app/src/main/kotlin/com/sajed/articlestudio/schema/
 - Engine.kt (113): SchemaForm, KpiRow, SchemaRow
-- Schema.kt (115): FieldType, Field, Kpi, ModuleSchema, SchemaRules, Schemas
+- Schema.kt (117): FieldType, Field, Kpi, ModuleSchema, SchemaRules, Schemas
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/
 - Components.kt (117): Modifier.focusRing, IconBtn, PrimaryButton, AppChip, Panel, LiveBar
 - Motion.kt (55): Modifier.stagger, AmbientBackground
 - Prefs.kt (33): UiPrefs, LiveStatus
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (207): HomeScreen
-- HomeViewModel.kt (130): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
+- HomeScreen.kt (215): HomeScreen
+- HomeViewModel.kt (137): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
-- Icons.kt (53): Icons
+- Icons.kt (55): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
 - AppNav.kt (137): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
-- Articles.kt (192): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
-- Export.kt (231): ExportViewModel, ExportScreen
+- Articles.kt (200): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
+- Export.kt (233): ExportViewModel, ExportScreen
 - Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
+- Sites.kt (340): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -99,7 +102,7 @@
 - file_paths.xml (6)
 ### app/src/test/kotlin/com/sajed/articlestudio/
 - CoreTest.kt (39): CoreTest
-- MigrationTest.kt (31): MigrationTest
+- MigrationTest.kt (42): MigrationTest
 ### app/src/test/kotlin/com/sajed/articlestudio/engine/
 - EngineTest.kt (83): EngineTest
 - Fixtures.kt (14): sampleArticle
@@ -107,9 +110,10 @@
 - JobRunnerTest.kt (121): JobRunnerTest
 - ProviderHttpTest.kt (85): ProviderHttpTest
 - RenderTest.kt (38): RenderTest
+- SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### docs/
-- repo-map.md (57)
+- repo-map.md (52)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
