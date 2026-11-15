@@ -10,7 +10,7 @@ plugins {
 }
 
 val props = Properties().apply { file("../gradle.properties").inputStream().use { load(it) } }
-val storeFile = System.getenv("SIGNING_STORE_FILE")
+val keystorePath: String? = System.getenv("SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "com.sajed.articlestudio"
@@ -23,8 +23,8 @@ android {
         versionName = props.getProperty("VERSION_NAME")
     }
     signingConfigs {
-        if (storeFile != null) create("release") {
-            this.storeFile = file(storeFile)
+        if (keystorePath != null) create("release") {
+            storeFile = file(keystorePath)
             storePassword = System.getenv("SIGNING_STORE_PASSWORD")
             keyAlias = System.getenv("SIGNING_KEY_ALIAS")
             keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
