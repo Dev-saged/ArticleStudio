@@ -50,6 +50,9 @@ data class HomeUiState(
     val logs: List<LogLine> = emptyList(),
     val phase: String = "",
     val blogCount: Int = 0,
+    val siteName: String = "",
+    val siteNiche: String = "sport",
+    val siteCount: Int = 1,
 ) {
     val shownTotal get() = if (jobTotal > 0) jobTotal else total
     val etaMin get() = ((shownTotal - done - failed).coerceAtLeast(0) * 2)
@@ -59,22 +62,26 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val runner: JobRunner, private val bus: RunBus, private val engine: ProviderEngine,
-    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, arts: ArticleDao, @ApplicationContext private val ctx: Context,
+    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, val sites: com.sajed.articlestudio.engine.SiteStore, arts: ArticleDao, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
     private val inputs = MutableStateFlow(Triple(10, PlanMode.News, "") to "")
     private val _ui = MutableStateFlow(HomeUiState())
     val ui: StateFlow<HomeUiState> = _ui.asStateFlow()
-    @Volatile private var articles: List<ArticleEntity> = emptyList()
+    @Volatile private var articles: List<com.sajed.articlestudio.data.ArticleRow> = emptyList()
     private var ballAt = 0
     private var lastPassId = 0
     private var currentPass: BallPass? = null
 
     init {
         updater.check(auto = true)
-        viewModelScope.launch { arts.observeAll().collect { articles = it } }
-        viewModelScope.launch { runCatching { blog.refresh() } }
-        viewModelScope.launch {
-            while (true) { refresh(); delay(250) }
+        viewModelScope.launch { arts.observeRows().collect { articles = it } }
+        viewModelScope.launch { sites.activeId.collect { runCatching { blog.refresh(sites.active().url) } } }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            while (true) {
+                // لا نحدّث بسرعة إلا والشاشة ظاهرة، لتبقى بقية التطبيق سلسة
+                refresh()
+                delay(if (_ui.subscriptionCount.value > 0) 250 else 1500)
+            }
         }
     }
 
@@ -108,7 +115,7 @@ class HomeViewModel @Inject constructor(
             total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
             done = job.done, failed = job.failed, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
             pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
-            avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count,
+            avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count(sites.active().url), siteName = sites.active().name, siteNiche = sites.active().niche, siteCount = sites.sites.value.size,
         )
     }
 
@@ -123,7 +130,7 @@ class HomeViewModel @Inject constructor(
         if (store.readySpecs().isEmpty()) { inputs.update { it.first to "فعّل مزوداً واحداً على الأقل: أضف مفتاحاً أو فعّل Pollinations" }; return }
         if (s.mode == PlanMode.Mine && s.custom.lines().none { it.trim().length > 5 }) { inputs.update { it.first to "اكتب موضوعاً واحداً على الأقل في كل سطر" }; return }
         inputs.update { it.first to "" }
-        if (s.resumable) runner.resume() else runner.start(s.total, s.mode, s.custom)
+        if (s.resumable) runner.resume() else runner.start(s.total, s.mode, s.custom, sites.activeId.value)
         GenerationService.start(ctx)
     }
 }

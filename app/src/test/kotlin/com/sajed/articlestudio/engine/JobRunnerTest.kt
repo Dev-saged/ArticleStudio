@@ -82,7 +82,7 @@ ${words(30)}
         val http = OkHttpClient(); val bus = RunBus()
         val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http))
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), SiteStore(ctx))
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }
@@ -103,7 +103,7 @@ ${words(30)}
         assertEquals(2, db.articles().countByStatus("ready"))
         val j = db.jobs().latest()!!
         assertEquals("done", j.state); assertEquals(2, j.next); assertEquals(2, j.done)
-        val a = db.articles().ready().first()
+        val a = db.articles().readyFor("default").first()
         assertTrue(AppJson.decodeFromString(Article.serializer(), a.data).words >= 360)
     }
 
@@ -112,7 +112,7 @@ ${words(30)}
         val id = db.jobs().upsert(JobEntity(total = 3, done = 1, state = "paused", createdAt = 1, topics = AppJson.encodeToString(ListSerializer(Topic.serializer()), topics), next = 1, mode = "Mine"))
         runner.resume()
         await(3)
-        assertEquals(2, db.articles().ready().size)
+        assertEquals(2, db.articles().readyFor("default").size)
         assertEquals(2, metaCalls)
         assertEquals("done", db.jobs().latest()!!.state)
         assertEquals(id, db.jobs().latest()!!.id)

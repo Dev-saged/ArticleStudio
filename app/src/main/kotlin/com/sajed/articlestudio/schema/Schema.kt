@@ -12,6 +12,8 @@ class Field(
     val options: List<String> = emptyList(),
     val min: Int? = null,
     val max: Int? = null,
+    val lines: Int = 1,
+    val hint: String = "",
 )
 
 class Kpi(val label: String, val value: (List<Row>) -> String)
@@ -27,8 +29,8 @@ class ModuleSchema(
 )
 
 object SchemaRules {
-    fun sanitize(raw: String, max: Int = 500): String =
-        raw.filter { !it.isISOControl() || it == '\n' }.trim().take(max)
+    fun sanitize(raw: String, max: Int = 500, trim: Boolean = true): String =
+        raw.filter { !it.isISOControl() || it == '\n' }.let { if (trim) it.trim() else it }.take(max)
 
     fun validate(schema: ModuleSchema, values: Row): Map<String, String> {
         val errors = LinkedHashMap<String, String>()

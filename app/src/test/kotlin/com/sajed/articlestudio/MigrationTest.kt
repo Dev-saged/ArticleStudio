@@ -27,4 +27,15 @@ class MigrationTest {
         db.query("SELECT title, data FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("عنوان", it.getString(0)); assertEquals("", it.getString(1)) }
         db.query("SELECT total, next, mode, failed FROM jobs").use { it.moveToFirst(); assertEquals(5, it.getInt(0)); assertEquals(0, it.getInt(1)); assertEquals("news", it.getString(2)); assertEquals(0, it.getInt(3)) }
     }
+
+    @Test fun migrate2To3AddsSiteAndQualityWithDefaults() {
+        helper.createDatabase("t3", 2).apply {
+            execSQL("INSERT INTO jobs (total, done, state, created_at, next, mode, custom, failed) VALUES (3, 1, 'done', 1, 0, 'news', '', 0)")
+            execSQL("INSERT INTO articles (job_id, idx, title, slug, labels, status, words, provider, html, error, updated_at, data) VALUES (1, 0, 'عنوان', 's', '', 'ready', 700, 'groq', '', '', 1, '{}')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("t3", 3, true, *Migrations.ALL)
+        db.query("SELECT site_id, quality FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("default", it.getString(0)); assertEquals(0, it.getInt(1)) }
+        db.query("SELECT site_id FROM jobs").use { it.moveToFirst(); assertEquals("default", it.getString(0)) }
+    }
 }

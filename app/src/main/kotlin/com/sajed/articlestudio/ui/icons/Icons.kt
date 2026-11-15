@@ -34,6 +34,7 @@ object Icons {
     val Check = icon("Check", false, "M5 12.5l4.5 4.5L19 7.5")
     val Warning = icon("Warning", false, "M12 3 2.5 20h19z", "M12 10v4.5M12 17.5h.01")
     val Back = icon("Back", true, "M15 5l-7 7 7 7")
+    val Next = icon("Next", true, "M9 5l7 7-7 7")
     val Plus = icon("Plus", false, "M12 5v14M5 12h14")
     val Close = icon("Close", false, "M6 6l12 12M18 6 6 18")
     val Refresh = icon("Refresh", false, "M20 11a8 8 0 1 0-2.3 6M20 4v7h-7")
@@ -48,5 +49,6 @@ object Icons {
     val Search = icon("Search", false, "M16 16l4.5 4.5", "M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z")
     val Eye = icon("Eye", false, "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z", "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z")
     val EyeOff = icon("EyeOff", false, "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z", "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z", "M4 4l16 16")
+    val Sites = icon("Sites", false, "M3 7.5 12 3l9 4.5-9 4.5z", "M3 12l9 4.5 9-4.5", "M3 16.5 12 21l9-4.5")
     val Info = icon("Info", false, "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 11v5M12 8h.01")
 }

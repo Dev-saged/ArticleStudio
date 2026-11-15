@@ -19,31 +19,30 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private class Feed(val name: String, val url: String, val limit: Int = 10)
+internal class Feed(val name: String, val url: String, val limit: Int = 10)
 
 private val LEAGUES = listOf("eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "uefa.champions", "ksa.1", "caf.nations", "afc.champions", "fifa.world")
-private fun gnews(q: String) = "https://news.google.com/rss/search?q=" + URLEncoder.encode("$q when:3d", "UTF-8") + "&hl=ar&gl=EG&ceid=EG:ar"
-private val FEEDS = listOf(
-    Feed("RT عربي", "https://rtarabic.com/rss/sport/"),
-    Feed("CNN عربية", "https://arabic.cnn.com/api/v1/rss/sport/rss.xml"),
-    Feed("بي بي سي سبورت", "https://feeds.bbci.co.uk/sport/football/rss.xml"),
-    Feed("سكاي سبورتس", "https://www.skysports.com/rss/12040"),
-    Feed("الغارديان", "https://www.theguardian.com/football/rss"),
-    Feed("أخبار جوجل", gnews("كرة القدم"), 14),
-    Feed("أخبار جوجل", gnews("الدوري السعودي OR الدوري المصري OR المنتخب المصري OR المنتخب السعودي"), 14),
-)
+private fun gnews(q: String) = "https://news.google.com/rss/search?q=" + URLEncoder.encode("$q when:7d", "UTF-8") + "&hl=ar&gl=EG&ceid=EG:ar"
+
+internal fun feedsFor(site: SiteConfig): List<Feed> {
+    val n = site.nicheDef
+    val fixed = n.feeds.map { Feed(it.name, it.url) } + site.feeds.map { Feed(it.removePrefix("https://").removePrefix("http://").substringBefore('/'), it) }
+    val kws = site.keywords.ifEmpty { n.keywords }
+    val queries = kws.chunked(3).take(2).map { it.joinToString(" OR ") { k -> if (k.contains(' ')) "\"$k\"" else k } }
+    return fixed + queries.map { Feed("أخبار جوجل", gnews(it), 14) }
+}
 
 /** يجمع عناوين كرة القدم الحديثة من مصادر متعددة (ESPN وعدة تغذيات RSS عربية وإنجليزية). */
 @Singleton
 class NewsSources @Inject constructor(private val http: OkHttpClient) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun fetch(usedUrls: Set<String> = emptySet(), days: Int = 10): List<Ref> {
+    suspend fun fetch(site: SiteConfig, usedUrls: Set<String> = emptySet(), days: Int = 10): List<Ref> {
         val cutoff = System.currentTimeMillis() - days * 86_400_000L
         val client = http.newBuilder().callTimeout(14, TimeUnit.SECONDS).build()
         val groups = coroutineScope {
-            val espn = LEAGUES.map { lg -> async { runCatching { espn(client, lg, cutoff) }.getOrDefault(emptyList()) } }
-            val rss = FEEDS.map { f -> async { runCatching { fetchRss(client, f, cutoff) }.getOrDefault(emptyList()) } }
+            val espn = (if (site.nicheDef.espn) LEAGUES else emptyList()).map { lg -> async { runCatching { espn(client, lg, cutoff) }.getOrDefault(emptyList()) } }
+            val rss = feedsFor(site).map { f -> async { runCatching { fetchRss(client, f, cutoff) }.getOrDefault(emptyList()) } }
             listOf(espn.awaitAll().flatten().sortedByDescending { it.t }.take(24)) + rss.awaitAll()
         }
         return merge(groups.flatten(), usedUrls).take(64)

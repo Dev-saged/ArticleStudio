@@ -28,19 +28,23 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
     private val gold = SvgDraw.GOLD
     private val goldB = hsl(34f, 0.92f, 0.52f)
 
-    fun render(a: Article): RenderedImages {
+    fun render(a: Article, site: SiteConfig? = null): RenderedImages {
+        val br = brandOf(site)
         val bmp = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        cover(c, a)
+        cover(c, a, br)
         val cover = jpeg(bmp)
-        card(c, a)
+        card(c, a, br)
         val info = jpeg(bmp)
         bmp.recycle()
         return RenderedImages(cover, info)
     }
 
-    fun coverBitmap(a: Article): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { cover(Canvas(it), a) }
-    fun cardBitmap(a: Article): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { card(Canvas(it), a) }
+    fun coverBitmap(a: Article, site: SiteConfig? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { cover(Canvas(it), a, brandOf(site)) }
+    fun cardBitmap(a: Article, site: SiteConfig? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { card(Canvas(it), a, brandOf(site)) }
+
+    private class Brand(val name: String, val domain: String)
+    private fun brandOf(site: SiteConfig?) = Brand(site?.name ?: BrandConfig.BLOG_NAME, site?.host ?: BrandConfig.BLOG_SITE.removePrefix("https://"))
 
     private fun jpeg(b: Bitmap) = ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.JPEG, 84, it) }.toByteArray()
 
@@ -88,12 +92,12 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         c.drawRect(0f, 622f, 1186f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 1200f, 0f, Color.TRANSPARENT, goldB, Shader.TileMode.CLAMP) })
     }
 
-    private fun brandMark(c: Canvas, y: Float) {
+    private fun brandMark(c: Canvas, y: Float, br: Brand) {
         val p = paint(heavy, 30f)
-        textR(c, BrandConfig.BLOG_NAME, 1130f, y, p)
-        val w = width(BrandConfig.BLOG_NAME, p)
+        textR(c, br.name, 1130f, y, p)
+        val w = width(br.name, p)
         c.drawCircle(1130f - w - 32, y - 11, 9f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B30"); setShadowLayer(14f, 0f, 0f, Color.argb(90, 255, 59, 48)) })
-        c.drawText(BrandConfig.BLOG_SITE.removePrefix("https://"), 70f, y, paint(bold, 24f, Color.argb(170, 255, 255, 255)))
+        c.drawText(br.domain, 70f, y, paint(bold, 24f, Color.argb(170, 255, 255, 255)))
     }
 
     private fun pill(c: Canvas, text: String, rightX: Float, y: Float, size: Float): Float {
@@ -107,7 +111,7 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         return h
     }
 
-    private fun cover(c: Canvas, a: Article) {
+    private fun cover(c: Canvas, a: Article, br: Brand) {
         bgBase(c, a.hue.toFloat())
         c.drawCircle(110f, 315f, 320f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 5f; color = Color.argb(18, 255, 255, 255) })
         c.drawRect(0f, 60f, 600f, 620f, Paint().apply { shader = RadialGradient(290f, 340f, 270f, hsl(a.hue.toFloat(), .70f, .55f, .42f), Color.TRANSPARENT, Shader.TileMode.CLAMP) })
@@ -128,10 +132,10 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         }
         val tp = paint(heavy, fs).apply { setShadowLayer(22f, 0f, 4f, Color.argb(115, 0, 0, 0)) }
         lines.forEachIndexed { i, l -> textR(c, l, 1116f, 76 + ph + 58 + fs * (1.1f + i * 1.38f), tp) }
-        brandMark(c, 586f)
+        brandMark(c, 586f, br)
     }
 
-    private fun card(c: Canvas, a: Article) {
+    private fun card(c: Canvas, a: Article, br: Brand) {
         bgBase(c, a.hue.toFloat())
         textR(c, iso(a.infotitle), 1124f, 98f, paint(heavy, 44f))
         val kp = paint(bold, 24f, gold)
@@ -155,6 +159,6 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
             val ls = wrap(iso(f.c), cp, cw - 60).take(2)
             ls.forEachIndexed { k, l -> textR(c, l, x + cw - 30, y + ch - 24 - (ls.size - 1 - k) * 36, cp) }
         }
-        brandMark(c, 590f)
+        brandMark(c, 590f, br)
     }
 }

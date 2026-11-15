@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,14 +64,21 @@ data class ArticleItem(val id: Long, val title: String, val status: String, val 
 
 @HiltViewModel
 class ArticlesViewModel @Inject constructor(
-    private val dao: ArticleDao, private val runner: JobRunner, @ApplicationContext private val ctx: Context,
+    private val dao: ArticleDao, private val runner: JobRunner, private val sites: com.sajed.articlestudio.engine.SiteStore, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
-    val items: StateFlow<List<ArticleItem>?> = dao.observeAll().map { l ->
-        l.map { e ->
-            val q = if (e.status == "failed" || e.data.isEmpty()) 0 else runCatching { AppJson.decodeFromString(Article.serializer(), e.data).quality }.getOrDefault(0)
-            ArticleItem(e.id, e.title, e.status, e.words, e.provider, q, e.error)
-        }
+    val items: StateFlow<List<ArticleItem>?> = sites.activeId.flatMapLatest { sid ->
+        dao.observeRows().map { l -> l.filter { it.siteId == sid }.map { e -> ArticleItem(e.id, e.title, e.status, e.words, e.provider, e.quality, e.error) } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    init {
+        viewModelScope.launch(Dispatchers.Default) {
+            for (id in dao.needQuality()) {
+                val e = dao.byId(id) ?: continue
+                val q = runCatching { AppJson.decodeFromString(Article.serializer(), e.data).quality }.getOrDefault(0)
+                dao.setQuality(id, q.coerceAtLeast(1))
+            }
+        }
+    }
 
     private val _edit = MutableStateFlow<Pair<Long, Map<String, String>>?>(null)
     val edit: StateFlow<Pair<Long, Map<String, String>>?> = _edit.asStateFlow()

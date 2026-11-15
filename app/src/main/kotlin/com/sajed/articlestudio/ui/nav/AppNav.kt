@@ -11,12 +11,9 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -56,6 +53,7 @@ import com.sajed.articlestudio.ui.home.HomeScreen
 import com.sajed.articlestudio.ui.screens.ArticlesScreen
 import com.sajed.articlestudio.ui.screens.ExportScreen
 import com.sajed.articlestudio.ui.screens.ProvidersScreen
+import com.sajed.articlestudio.ui.screens.SitesScreen
 import com.sajed.articlestudio.ui.test.SelfTestScreen
 import com.sajed.articlestudio.ui.theme.AppTheme
 
@@ -63,6 +61,7 @@ private class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val TABS = listOf(
     Tab("home", "توليد", Icons.Generate),
+    Tab("sites", "المواقع", Icons.Sites),
     Tab("articles", "المقالات", Icons.Articles),
     Tab("providers", "المزودون", Icons.Providers),
     Tab("export", "التصدير", Icons.Export),
@@ -84,12 +83,13 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
             LiveBar(ticker)
             NavHost(
                 nav, startDestination = "home", modifier = Modifier.weight(1f),
-                enterTransition = { fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 24 } },
-                exitTransition = { fadeOut(tween(160)) },
-                popEnterTransition = { fadeIn(tween(260)) },
-                popExitTransition = { fadeOut(tween(160)) },
+                enterTransition = { fadeIn(tween(140)) },
+                exitTransition = { fadeOut(tween(90)) },
+                popEnterTransition = { fadeIn(tween(140)) },
+                popExitTransition = { fadeOut(tween(90)) },
             ) {
                 composable("home") { HomeScreen(c.isDark, onToggleTheme, onOpenTest = { nav.navigate(TEST) }) }
+                composable("sites") { SitesScreen(onGenerate = { nav.navigate("home") { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
                 composable("articles") { ArticlesScreen() }
                 composable("providers") { ProvidersScreen() }
                 composable("export") { ExportScreen() }

@@ -61,11 +61,11 @@ fun SchemaForm(schema: ModuleSchema, values: Row, errors: Map<String, String>, o
                     var shown by remember { mutableStateOf(false) }
                     val secret = f.type == FieldType.Secret
                     OutlinedTextField(
-                        value = v, onValueChange = { onChange(f.key, SchemaRules.sanitize(it)) },
+                        value = v, onValueChange = { onChange(f.key, SchemaRules.sanitize(it, if (f.lines > 1) 1200 else 500, trim = false)) },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text(f.label) }, singleLine = true,
+                        label = { Text(f.label) }, singleLine = f.lines <= 1, minLines = f.lines, maxLines = if (f.lines <= 1) 1 else f.lines + 3,
                         isError = errors.containsKey(f.key),
-                        supportingText = errors[f.key]?.let { e -> { Text(e) } },
+                        supportingText = (errors[f.key] ?: f.hint.ifEmpty { null })?.let { e -> { Text(e) } },
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             color = c.text, textDirection = if (secret || f.type == FieldType.Number) TextDirection.Ltr else TextDirection.Content,
                         ),

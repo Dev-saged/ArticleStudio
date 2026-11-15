@@ -40,6 +40,7 @@ class ExportUi(
 class ExportManager @Inject constructor(
     @ApplicationContext private val ctx: Context, private val arts: ArticleDao, private val renderer: ImageRenderer,
     private val gh: GitHubClient, private val cfg: GitHubSettings, private val history: HistoryStore, private val blog: BlogIndex,
+    private val sites: SiteStore,
 ) {
     private val dir get() = File(ctx.filesDir, "exports").apply { mkdirs() }
     private val _ui = MutableStateFlow(ExportUi())
@@ -56,41 +57,45 @@ class ExportManager @Inject constructor(
 
     private fun stage(t: String, idx: Int, count: Int, done: Int = 0, total: Int = 0) = _ui.update { ExportUi(true, t, idx, count, done, total, summary = it.summary) }
 
-    suspend fun check(): List<String> = gh.check()
+    private fun repoOf(site: SiteConfig) = site.repo.ifBlank { cfg.repo }
+    private fun branchOf(site: SiteConfig) = site.branch.ifBlank { cfg.branch }
 
-    suspend fun export() = withContext(Dispatchers.Default) {
+    suspend fun check(siteId: String): List<String> = gh.check(repoOf(sites.get(siteId)))
+
+    suspend fun export(siteId: String) = withContext(Dispatchers.Default) {
         _ui.value = ExportUi(true, "تهيئة", 0, 4)
         try {
-            val rows = arts.ready()
+            val site = sites.get(siteId)
+            val rows = arts.readyFor(site.id)
             if (rows.isEmpty()) throw IllegalStateException("لا مقالات جاهزة للتصدير")
             val auto = cfg.autoPush
             val count = 4
             if (auto) { if (cfg.token.isEmpty()) throw IllegalStateException("أدخل GitHub Token أو عطّل الرفع التلقائي"); stage("فحص صلاحيات GitHub", 1, count); gh.check() }
             val parsed = rows.map { it to AppJson.decodeFromString(Article.serializer(), it.data) }
-            val list = XmlBuilder.assignSlugs(parsed.map { it.second }, history.load().slugs.toSet() + blog.slugs())
-            val name = ExportNaming.fileName(list.size, LocalDate.now()) { File(dir, it).exists() }
-            val folder = "Download/ArticleStudio/" + name.removeSuffix(".xml")
+            val list = XmlBuilder.assignSlugs(parsed.map { it.second }, history.load(site.id).slugs.toSet() + blog.slugs(site.url))
+            val name = ExportNaming.fileName(list.size, LocalDate.now(), site.name) { File(dir, it).exists() }
+            val folder = "Download/ArticleStudio/" + site.name.replace(Regex("[\\\\/:*?\"<>|]"), "-") + "/" + name.removeSuffix(".xml")
             val files = ArrayList<ImageFile>()
             list.forEachIndexed { i, a ->
                 stage("رسم الصور", 2, count, i, list.size)
-                val im = renderer.render(a); files += ImageFile("${a.finalSlug}-cover.jpg", im.cover); files += ImageFile("${a.finalSlug}-info.jpg", im.info)
+                val im = renderer.render(a, site); files += ImageFile("${a.finalSlug}-cover.jpg", im.cover); files += ImageFile("${a.finalSlug}-info.jpg", im.info)
             }
             val base: String
-            if (auto) base = gh.pushImages(files) { t, i, n -> stage(t, 3, count, i, n) }
+            if (auto) base = gh.pushImages(files, repoOf(site), branchOf(site)) { t, i, n -> stage(t, 3, count, i, n) }
             else {
                 stage("تجميع ZIP", 3, count)
-                base = "https://cdn.jsdelivr.net/gh/${cfg.repo}@${cfg.branch.ifBlank { "main" }}/images/articles/"
+                base = "https://cdn.jsdelivr.net/gh/${repoOf(site)}@${branchOf(site).ifBlank { "main" }}/images/articles/"
                 val zip = ByteArrayOutputStream().also { bo -> ZipOutputStream(bo).use { z -> files.forEach { f -> z.putNextEntry(ZipEntry(f.name)); z.write(f.bytes); z.closeEntry() } } }.toByteArray()
                 saveDownload("images.zip", "application/zip", zip, folder)
             }
             stage("بناء XML وحفظه", 4, count)
             files.forEach { f -> saveDownload(f.name, "image/jpeg", f.bytes, "$folder/images") }
-            val xml = XmlBuilder.build(list, base, cfg.scheduleHours, blog = blog.all())
+            val xml = XmlBuilder.build(list, base, if (site.schedule > 0) site.schedule else cfg.scheduleHours, blog = blog.all(site.url), site = site)
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
             File(dir, name).writeText(xml)
             saveDownload(name, "text/xml", xml.toByteArray(), folder)
             arts.markExported(rows.map { it.id }, System.currentTimeMillis())
-            history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } })
+            history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } }, site.id)
             refreshFiles()
             _ui.value = ExportUi(false, summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }, name.removeSuffix(".xml")))
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
