@@ -7,6 +7,11 @@ object BrandConfig {
     const val NAME = "استوديو المقالات"
     const val TAGLINE = "المزودون يتبادلون الكرة تلقائياً"
     const val DYNAMIC_COLOR = false
+    const val BLOG_NAME = "سبورت لايف 24"
+    const val BLOG_SITE = "https://sport1live24.blogspot.com"
+    const val BLOG_AUTHOR = "ساجد العبادلة"
+    const val DEFAULT_IMAGES_REPO = "Dev-saged/bloger"
+    const val UPDATE_REPO = "Dev-saged/ArticleStudio"
     val LICENSE_EXPIRY: String? = null
     val MODULES = listOf("generate", "articles", "providers", "export")
 

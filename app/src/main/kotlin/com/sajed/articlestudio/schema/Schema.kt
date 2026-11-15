@@ -73,11 +73,42 @@ object Schemas {
     val provider = ModuleSchema(
         id = "provider", title = "المزودون",
         fields = listOf(
-            Field("name", "الاسم", required = true),
-            Field("model", "النموذج"),
             Field("key", "المفتاح", FieldType.Secret),
             Field("enabled", "مفعّل", FieldType.Toggle),
         ),
-        listColumns = listOf("name", "model"),
+        listColumns = listOf("name"),
+    )
+
+    val providerCustom = ModuleSchema(
+        id = "provider-custom", title = "مزود مخصص",
+        fields = listOf(
+            Field("base", "الرابط الأساسي (…/v1)", required = true),
+            Field("model", "النموذج", required = true),
+            Field("key", "المفتاح", FieldType.Secret),
+            Field("enabled", "مفعّل", FieldType.Toggle),
+        ),
+        listColumns = listOf("name"),
+    )
+
+    val articleEdit = ModuleSchema(
+        id = "article-edit", title = "تعديل المقال",
+        fields = listOf(
+            Field("title", "العنوان", required = true),
+            Field("desc", "الوصف"),
+            Field("labels", "التصنيفات (بفاصلة)"),
+        ),
+        listColumns = listOf("title"),
+    )
+
+    val github = ModuleSchema(
+        id = "github", title = "GitHub",
+        fields = listOf(
+            Field("repo", "المستودع owner/name", required = true),
+            Field("branch", "الفرع"),
+            Field("token", "التوكن", FieldType.Secret),
+            Field("sched", "جدولة النشر بالساعات (0 = فوري)", FieldType.Number, min = 0, max = 72),
+            Field("auto", "رفع الصور تلقائياً", FieldType.Toggle),
+        ),
+        listColumns = listOf("repo"),
     )
 }

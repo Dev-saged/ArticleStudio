@@ -14,8 +14,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** مفاتيح المزودين مشفّرة بمفتاح AES-GCM داخل Android Keystore؛ لا تُسجَّل ولا تُصدَّر نصاً. */
+class SecretException(message: String) : Exception(message)
+
 @Singleton
-class SecretStore @Inject constructor(@ApplicationContext c: Context) {
+open class SecretStore @Inject constructor(@ApplicationContext c: Context) {
     private val sp = c.getSharedPreferences("secrets", Context.MODE_PRIVATE)
 
     private fun key(): SecretKey {
@@ -31,14 +33,16 @@ class SecretStore @Inject constructor(@ApplicationContext c: Context) {
         return gen.generateKey()
     }
 
-    fun put(name: String, value: String) {
+    open fun put(name: String, value: String) {
         if (value.isEmpty()) { sp.edit().remove(name).apply(); return }
-        val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
-        val out = cipher.iv + cipher.doFinal(value.toByteArray())
-        sp.edit().putString(name, Base64.encodeToString(out, Base64.NO_WRAP)).apply()
+        val enc = try {
+            val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
+            cipher.iv + cipher.doFinal(value.toByteArray())
+        } catch (e: Exception) { throw SecretException("تعذّر حفظ المفتاح بأمان على هذا الجهاز (Keystore)") }
+        sp.edit().putString(name, Base64.encodeToString(enc, Base64.NO_WRAP)).apply()
     }
 
-    fun get(name: String): String {
+    open fun get(name: String): String {
         val raw = sp.getString(name, null) ?: return ""
         return runCatching {
             val b = Base64.decode(raw, Base64.NO_WRAP)
@@ -48,7 +52,7 @@ class SecretStore @Inject constructor(@ApplicationContext c: Context) {
         }.getOrDefault("")
     }
 
-    fun has(name: String) = sp.contains(name)
+    open fun has(name: String) = sp.contains(name)
 
     private companion object {
         const val ALIAS = "studio_secrets"

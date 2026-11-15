@@ -50,7 +50,7 @@ private val POS = listOf(
 
 /** لوحة تكتيكية: المزودون لاعبون والكرة تُمرَّر بينهم بقوس مع ظل وارتفاع. */
 @Composable
-fun PitchBoard(nodes: List<NodeUi>, ballAt: Int, pass: PassEvent?, modifier: Modifier = Modifier) {
+fun PitchBoard(nodes: List<NodeUi>, ballAt: Int, pass: BallPass?, modifier: Modifier = Modifier) {
     val c = AppTheme.colors
     val reduce = rememberReduceMotion()
     val tm = rememberTextMeasurer()

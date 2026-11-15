@@ -19,9 +19,8 @@ android {
         applicationId = "com.sajed.articlestudio"
         minSdk = 26
         targetSdk = 36
-        versionCode = props.getProperty("VERSION_CODE").toInt()
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: props.getProperty("VERSION_CODE").toInt()
         versionName = props.getProperty("VERSION_NAME")
-        buildConfigField("String", "UPDATE_REPO", "\"Dev-saged/ArticleStudio\"")
     }
     signingConfigs {
         if (storeFile != null) create("release") {
@@ -44,7 +43,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    testOptions { unitTests.isReturnDefaultValues = true }
+    sourceSets { getByName("debug").assets.srcDir("$projectDir/schemas") }
+    testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true } }
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
@@ -71,5 +71,10 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.coroutines)
     implementation(libs.serialization.json)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.androidx.test.core)
 }

@@ -28,6 +28,16 @@ import com.sajed.articlestudio.data.AppDb
 import com.sajed.articlestudio.data.ArticleEntity
 import com.sajed.articlestudio.data.SecretStore
 import com.sajed.articlestudio.schema.Schemas
+import com.sajed.articlestudio.engine.Article
+import com.sajed.articlestudio.engine.Faq
+import com.sajed.articlestudio.engine.Fact
+import com.sajed.articlestudio.engine.ImageRenderer
+import com.sajed.articlestudio.engine.Section
+import com.sajed.articlestudio.engine.StudioData
+import com.sajed.articlestudio.engine.XmlBuilder
+import com.sajed.articlestudio.engine.parseTags
+import com.sajed.articlestudio.engine.toHtml
+import javax.xml.parsers.DocumentBuilderFactory
 import com.sajed.articlestudio.schema.SchemaRules
 import com.sajed.articlestudio.ui.IconBtn
 import com.sajed.articlestudio.ui.icons.Icons
@@ -65,6 +75,21 @@ fun SelfTestScreen(onBack: () -> Unit) {
             s.put("selftest", "")
             Check("Keystore: تشفير وفك", ok && !s.has("selftest"))
         }.getOrElse { Check("Keystore: تشفير وفك", false, it.javaClass.simpleName) }
+        out += Check("تحليل الوسوم وتنقية HTML", parseTags("[[title]] س\n[[fact]] 1|أ").size == 2 && !toHtml("<b>x</b>").contains("<b>"))
+        val art = Article(
+            "عنوان اختبار طويل بما يكفي للفحص", "وصف", "self-test-slug", listOf("أخبار"), "تحليل", "ball", 40, "أرقام",
+            List(4) { Fact("${it + 1}", "حقيقة") }, "خلاصة", "<p>مقدمة</p>", listOf(Section("قسم", "<p>نص</p>")),
+            listOf(Faq("سؤال؟", "جواب")), "<p>خاتمة</p>", null, 400, "test", "m", "t",
+        )
+        out += runCatching {
+            val xml = XmlBuilder.build(XmlBuilder.assignSlugs(listOf(art), emptySet()), "b/", 0)
+            DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
+            Check("بناء XML سليم", true)
+        }.getOrElse { Check("بناء XML سليم", false, it.javaClass.simpleName) }
+        out += runCatching {
+            val bmp = ImageRenderer(ctx, StudioData(ctx)).coverBitmap(art)
+            Check("رسم الغلاف بالخط العربي", IntArray(40) { bmp.getPixel(30 * it + 5, 315) }.toSet().size > 3)
+        }.getOrElse { Check("رسم الغلاف بالخط العربي", false, it.javaClass.simpleName) }
         checks = out
     }
 

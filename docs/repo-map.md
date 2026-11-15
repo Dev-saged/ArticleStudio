@@ -4,30 +4,38 @@
 
 ## Quick index (ميزة → ملف → ابحث بـ)
 - الهوية والألوان → `BrandConfig.kt` → `BrandConfig`
-- OKLCH → sRGB → `ui/theme/Oklch.kt` → `toColor`
-- الثيم فاتح/غامق + RTL → `ui/theme/Theme.kt` → `ArticleStudioTheme`
-- الخطوط والأرقام → `ui/theme/Type.kt` → `ltr`
-- الأيقونات (مجموعة واحدة) → `ui/icons/Icons.kt` → `Icons`
-- مكونات مشتركة → `ui/Components.kt` → `PrimaryButton`
-- حركة الدخول والخلفية → `ui/Motion.kt` → `stagger`
-- لوحة الكرة والمزودين → `ui/home/PitchBoard.kt` → `PitchBoard`
-- الرئيسية + محاكاة المعاينة → `ui/home/HomeViewModel.kt`، `HomeScreen.kt`
-- التنقل + الشريط الحي → `ui/nav/AppNav.kt` → `AppNav`
-- محرك المخططات → `schema/Schema.kt`، `schema/Engine.kt` → `SchemaForm`
-- Room v1 → `data/Db.kt`، `data/Entities.kt` → `Migrations`
-- مفاتيح مشفّرة → `data/SecretStore.kt`؛ المزودون → `data/Providers.kt`
-- الفحص الذاتي → `ui/test/SelfTestScreen.kt` (5 نقرات على عنوان الرئيسية)
+- الثيم فاتح/غامق + RTL، الخطوط، الأيقونات → `ui/theme/*`، `ui/icons/Icons.kt`
+- مكونات مشتركة وحركة → `ui/Components.kt`، `ui/Motion.kt`
+- الرئيسية: لوحة الكرة، الوضع، السجل → `ui/home/*` → `HomeViewModel`، `PitchBoard`
+- المقالات، المزودون، التصدير → `ui/screens/{Articles,Providers,Export}.kt`
+- التنقل + الشريط الحي → `ui/nav/AppNav.kt`
+- محرك المخططات (نماذج/قوائم) → `schema/Schema.kt`، `schema/Engine.kt` → `Schemas`
+- Room v2 + ترحيلات → `data/Db.kt`، `data/Entities.kt` → `Migrations`
+- المزودون والمفاتيح والصحة → `data/Providers.kt`، `data/SecretStore.kt`، `data/Stores.kt`
+- التبديل التلقائي بين المزودين → `engine/ProviderEngine.kt` → `chat`
+- تخطيط وكتابة المقال بمرحلتين → `engine/Generator.kt` → `article`، `plan`
+- تنفيذ المهمة والاستئناف → `engine/JobRunner.kt` → `JobRunner`
+- الخدمة الأمامية + الإشعار → `engine/GenerationService.kt`
+- صور الغلاف/البطاقة → `engine/ImageRenderer.kt`، `engine/SvgDraw.kt`
+- XML بلوجر → `engine/XmlBuilder.kt`؛ التصدير → `engine/ExportManager.kt`
+- رفع الصور لـ GitHub + فحص التحديث → `engine/GitHubClient.kt`
+- الفحص الذاتي على الجهاز → `ui/test/SelfTestScreen.kt` (5 نقرات على عنوان الرئيسية)
 
 ## Decisions
-- الشعار B (عمود الخبر + كرة)، الأيقونة التكيفية: ذهبي/أبيض/أحمر على كحلي.
-- التصميم: مفهوم C (لوحة تكتيكية) بألوان A (كحلي/أحمر/ذهبي)، الأحمر ثابت خلف الشريط الحي لضمان التباين.
-- التحويل إلى تطبيق أصلي بدل PWA: لأن الجافاسكربت يتجمد في الخلفية؛ الخدمة الأمامية هي الحل.
-- `HomeViewModel` يحاكي التوليد ببيانات تجريبية إلى أن يُربط المحرك.
+- الشعار B؛ التصميم C بألوان A؛ تطبيق أصلي لأن الجافاسكربت يتجمد في الخلفية.
+- كل مقال يُحفظ في Room فور اكتماله؛ المهمة تستأنف من `jobs.next` بعد أي توقف.
+- التصدير بنوع `text/xml` لأن منتقي بلوجر يعتّم `application/xml`.
+- الصور تُرفع بإيداع واحد لفرع `blog-images` وتُثبَّت الروابط بمعرّف الإيداع عبر jsDelivr.
+- رقم البناء = `GITHUB_RUN_NUMBER`، وتاج الإصدار `vX.Y.Z-bN` لفحص التحديث.
 
 ## Solved bugs (never reintroduce)
-- (لا شيء بعد)
+- نص SVG: قراءة سمات `<text>` بعد `nextText()` تعيد null (تُقرأ قبله). `SvgDraw.render`.
+- الأرقام معكوسة في الصور: `drawTextRun(rtl=true)` يفرض RTL على الأرقام؛ نستخدم `drawText` مع RLM. `ImageRenderer.textR`.
+- تداخل الرقم مع التسمية في بطاقة المعلومات: قياسات `card()` (84/70/56/46).
+- انهيار حفظ المفتاح إن تعذّر Keystore: `SecretException` تُلتقط في الواجهة.
+- قفزة الكرة لعقدتها القديمة قبل تحديث الحالة: موضع الراحة = العقدة الهدف.
 
 ## Open issues
-- المحرك الحقيقي (مزودون، فشل وتبديل)، الخدمة الأمامية، تصدير XML بـ text/xml، رفع الصور: لم تُنفَّذ بعد.
-- لم يُشغَّل التطبيق على جهاز أو محاكي؛ تحقق منه: بناء debug وrelease وخمسة اختبارات وحدة فقط.
-- اختبار ترحيل Room يحتاج جهازاً (androidTest) ولا ترحيلات بعد.
+- لم يُشغَّل على جهاز/محاكي: الخدمة الأمامية، Keystore، الأنيميشن، الأذونات، الإشعار.
+- لم تُجرَّب مزودات حقيقية ولا ESPN ولا رفع GitHub ولا استيراد بلوجر (مُختبَر بخادم وهمي فقط).
+- فشل المزودين جميعاً يجعل المحرك ينتظر حتى 90ث×3 جولات قبل إخفاق الموضوع.

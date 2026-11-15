@@ -1,10 +1,23 @@
 package com.sajed.articlestudio.ui.home
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sajed.articlestudio.ui.LiveStatus
+import com.sajed.articlestudio.data.ArticleDao
+import com.sajed.articlestudio.data.ArticleEntity
+import com.sajed.articlestudio.data.ProviderCatalog
+import com.sajed.articlestudio.data.ProviderStore
+import com.sajed.articlestudio.BrandConfig
+import com.sajed.articlestudio.BuildConfig
+import com.sajed.articlestudio.engine.GenerationService
+import com.sajed.articlestudio.engine.GitHubClient
+import com.sajed.articlestudio.engine.JobRunner
+import com.sajed.articlestudio.engine.LogLine
+import com.sajed.articlestudio.engine.PlanMode
+import com.sajed.articlestudio.engine.ProviderEngine
+import com.sajed.articlestudio.engine.RunBus
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,123 +25,105 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.random.Random
 
-enum class NodeState { Idle, Active, Cooling }
+enum class NodeState { Idle, Active, Cooling, NoKey }
 
 data class NodeUi(val name: String, val state: NodeState = NodeState.Idle, val coolSec: Int = 0, val progress: Float = 0f)
-data class PassEvent(val id: Int, val from: Int, val to: Int, val durationMs: Int)
+data class BallPass(val id: Int, val from: Int, val to: Int, val durationMs: Int)
 data class RowUi(val n: Int, val title: String, val words: Int, val provider: String)
 
 data class HomeUiState(
-    val total: Int = 20,
-    val done: Int = 0,
+    val total: Int = 10,
+    val mode: PlanMode = PlanMode.News,
+    val custom: String = "",
     val running: Boolean = false,
-    val nodes: List<NodeUi> = NAMES.map { NodeUi(it) },
+    val resumable: Boolean = false,
+    val done: Int = 0,
+    val failed: Int = 0,
+    val jobTotal: Int = 0,
+    val nodes: List<NodeUi> = emptyList(),
     val ballAt: Int = 0,
-    val pass: PassEvent? = null,
+    val pass: BallPass? = null,
     val rows: List<RowUi> = emptyList(),
-    val wordsSum: Int = 0,
+    val avgWords: Int = 0,
+    val notice: String = "",
+    val logs: List<LogLine> = emptyList(),
+    val updateUrl: String? = null,
 ) {
-    val avgWords get() = if (done == 0) 0 else wordsSum / done
-    val etaMin get() = ((total - done) * 3 + 1) / 2
-    val progress get() = if (total == 0) 0f else done.toFloat() / total
+    val shownTotal get() = if (jobTotal > 0) jobTotal else total
+    val etaMin get() = ((shownTotal - done - failed).coerceAtLeast(0) * 2)
+    val progress get() = if (shownTotal == 0) 0f else (done + failed).toFloat() / shownTotal
 }
 
-private val NAMES = listOf("Cerebras", "Groq", "Gemini", "Mistral", "OpenRouter", "Pollinations")
-private val SAMPLE_TITLES = listOf(
-    "سكالوني يجدد عقده مع الأرجنتين حتى مونديال 2030", "فنسنت كومباني يعود لتدريبات بايرن ميونخ",
-    "كيف تقرأ جدول الترتيب في الدوريات الكبرى", "قاعدة التسلل وكيف تُحتسب",
-    "الضغط العالي في كرة القدم", "تقنية الفار: كيف تعمل ومتى تتدخل",
-    "دليل المشجع لمتابعة الدوريات الأوروبية", "كيف تُختار مدن استضافة كأس العالم؟",
-)
-
-/** وضع المعاينة: يحاكي توزيع العمل وتبديل المزودين ببيانات تجريبية إلى أن يُربط المحرك الحقيقي. */
 @HiltViewModel
-class HomeViewModel @Inject constructor(private val live: LiveStatus) : ViewModel() {
+class HomeViewModel @Inject constructor(
+    private val runner: JobRunner, private val bus: RunBus, private val engine: ProviderEngine,
+    private val store: ProviderStore, private val gh: GitHubClient, arts: ArticleDao, @ApplicationContext private val ctx: Context,
+) : ViewModel() {
+    private val inputs = MutableStateFlow(Triple(10, PlanMode.News, "") to "")
     private val _ui = MutableStateFlow(HomeUiState())
     val ui: StateFlow<HomeUiState> = _ui.asStateFlow()
-    private var run: Job? = null
-    private var passId = 0
-    private val coolUntil = LongArray(NAMES.size)
+    @Volatile private var articles: List<ArticleEntity> = emptyList()
+    private var ballAt = 0
+    private var lastPassId = 0
+    private var currentPass: BallPass? = null
+
+    @Volatile private var updateUrl: String? = null
 
     init {
+        viewModelScope.launch { gh.latestRelease(BrandConfig.UPDATE_REPO)?.let { (n, url) -> if (n > BuildConfig.VERSION_CODE) updateUrl = url } }
+        viewModelScope.launch { arts.observeAll().collect { articles = it } }
         viewModelScope.launch {
-            while (true) {
-                delay(500)
-                val now = System.currentTimeMillis()
-                _ui.update { s ->
-                    s.copy(nodes = s.nodes.mapIndexed { i, n ->
-                        if (n.state != NodeState.Cooling) n
-                        else if (coolUntil[i] <= now) n.copy(state = NodeState.Idle, coolSec = 0)
-                        else n.copy(coolSec = ((coolUntil[i] - now + 999) / 1000).toInt())
-                    })
-                }
-            }
+            while (true) { refresh(); delay(250) }
         }
     }
 
-    fun setTotal(n: Int) = _ui.update { it.copy(total = n, done = minOf(it.done, n)) }
+    private fun nodeSpecs() = store.readySpecs().take(6).ifEmpty { ProviderCatalog.all.take(6) }
 
-    fun toggle() {
-        if (run?.isActive == true) { run?.cancel(); stopped("متوقف مؤقتاً"); return }
-        if (_ui.value.done >= _ui.value.total) _ui.update { it.copy(done = 0, wordsSum = 0, rows = emptyList()) }
-        _ui.update { it.copy(running = true) }
-        run = viewModelScope.launch { loop() }
-    }
-
-    private fun stopped(msg: String) {
-        _ui.update { s -> s.copy(running = false, nodes = s.nodes.map { if (it.state == NodeState.Active) it.copy(state = NodeState.Idle, progress = 0f) else it }) }
-        live.set(msg)
-    }
-
-    private fun nextFree(from: Int): Int {
-        val now = System.currentTimeMillis()
-        for (k in 1..NAMES.size) { val j = (from + k) % NAMES.size; if (coolUntil[j] <= now) return j }
-        return (from + 1) % NAMES.size
-    }
-
-    private suspend fun pass(to: Int, ms: Int) {
-        val from = _ui.value.ballAt
-        _ui.update { it.copy(pass = PassEvent(++passId, from, to, ms)) }
-        delay(ms + 700L)
-        _ui.update { it.copy(ballAt = to) }
-    }
-
-    private suspend fun loop() {
-        while (_ui.value.done < _ui.value.total) {
-            val cur = _ui.value.ballAt
-            if (_ui.value.done > 8 && Random.nextFloat() < 0.22f) {
-                coolUntil[cur] = System.currentTimeMillis() + 14_000
-                _ui.update { s -> s.copy(nodes = s.nodes.mapIndexed { i, n -> if (i == cur) n.copy(state = NodeState.Cooling, coolSec = 14) else n }) }
-                live.set("${NAMES[cur]}: الحد مستهلك، تُمرَّر الكرة تلقائياً")
-                pass(nextFree(cur), 650)
-                continue
+    private fun refresh() {
+        val specs = nodeSpecs()
+        val job = runner.state.value
+        val active = bus.active.value
+        val since = bus.activeSince.value
+        val nodes = specs.map { s ->
+            val cool = engine.coolSeconds(s.id)
+            when {
+                !store.ready(s) -> NodeUi(s.name, NodeState.NoKey)
+                s.id == active -> NodeUi(s.name, NodeState.Active, progress = ((System.currentTimeMillis() - since) / 40_000f).coerceIn(0.05f, 0.95f))
+                cool > 0 -> NodeUi(s.name, NodeState.Cooling, cool)
+                else -> NodeUi(s.name)
             }
-            val title = SAMPLE_TITLES[_ui.value.done % SAMPLE_TITLES.size]
-            live.set("${NAMES[cur]} يكتب الآن: $title")
-            val steps = Random.nextInt(35, 50)
-            for (k in 1..steps) {
-                _ui.update { s -> s.copy(nodes = s.nodes.mapIndexed { i, n -> if (i == cur) n.copy(state = NodeState.Active, progress = k / steps.toFloat()) else n }) }
-                delay(60)
-            }
-            val words = Random.nextInt(690, 810)
-            _ui.update { s ->
-                val d = s.done + 1
-                s.copy(
-                    done = d, wordsSum = s.wordsSum + words,
-                    nodes = s.nodes.mapIndexed { i, n -> if (i == cur) n.copy(state = NodeState.Idle, progress = 0f) else n },
-                    rows = (listOf(RowUi(d, title, words, NAMES[cur])) + s.rows).take(4),
-                )
-            }
-            if (_ui.value.done >= _ui.value.total) break
-            val nx = nextFree(cur)
-            live.set("تمريرة إلى ${NAMES[nx]}")
-            pass(nx, 950)
         }
-        _ui.update { it.copy(running = false) }
-        live.set("اكتمل التوليد: ${_ui.value.total} مقالاً جاهزاً للتصدير")
+        bus.pass.value?.let { p ->
+            if (p.id != lastPassId) {
+                lastPassId = p.id
+                val from = specs.indexOfFirst { it.id == p.from }; val to = specs.indexOfFirst { it.id == p.to }
+                if (to >= 0) { currentPass = BallPass(p.id, if (from < 0) to else from, to, 900); ballAt = to }
+            }
+        }
+        val mine = articles.filter { it.jobId == job.jobId && (it.status == "ready" || it.status == "exported") }
+        val words = mine.filter { it.words > 0 }
+        val (inp, notice) = inputs.value
+        _ui.value = HomeUiState(
+            total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
+            done = job.done, failed = job.failed, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
+            pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
+            avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), updateUrl = updateUrl,
+        )
     }
 
-    override fun onCleared() { run?.cancel() }
+    fun setTotal(n: Int) = inputs.update { (a, b) -> a.copy(first = n) to b }
+    fun setMode(m: PlanMode) = inputs.update { (a, b) -> a.copy(second = m) to b }
+    fun setCustom(t: String) = inputs.update { (a, b) -> a.copy(third = t.take(4000)) to b }
+
+    /** يبدأ أو يستأنف أو يوقف؛ يعيد true إذا بدأ عملاً يحتاج الخدمة الأمامية. */
+    fun go() {
+        val s = _ui.value
+        if (s.running) { runner.stop(); return }
+        if (store.readySpecs().isEmpty()) { inputs.update { it.first to "فعّل مزوداً واحداً على الأقل: أضف مفتاحاً أو فعّل Pollinations" }; return }
+        if (s.mode == PlanMode.Mine && s.custom.lines().none { it.trim().length > 5 }) { inputs.update { it.first to "اكتب موضوعاً واحداً على الأقل في كل سطر" }; return }
+        inputs.update { it.first to "" }
+        if (s.resumable) runner.resume() else runner.start(s.total, s.mode, s.custom)
+        GenerationService.start(ctx)
+    }
 }

@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/** status: ready | failed | exported. data: Article JSON للجاهز، Topic JSON للفاشل. */
 @Entity(tableName = "articles")
 data class ArticleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -18,8 +19,10 @@ data class ArticleEntity(
     val html: String = "",
     val error: String = "",
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    @ColumnInfo(defaultValue = "''") val data: String = "",
 )
 
+/** state: running | paused | done. topics: خطة المواضيع JSON، next: فهرس الموضوع التالي. */
 @Entity(tableName = "jobs")
 data class JobEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -27,4 +30,9 @@ data class JobEntity(
     val done: Int = 0,
     val state: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(defaultValue = "''") val topics: String = "",
+    @ColumnInfo(defaultValue = "0") val next: Int = 0,
+    @ColumnInfo(defaultValue = "'news'") val mode: String = "news",
+    @ColumnInfo(defaultValue = "''") val custom: String = "",
+    @ColumnInfo(defaultValue = "0") val failed: Int = 0,
 )
