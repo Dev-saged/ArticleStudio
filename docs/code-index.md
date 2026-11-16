@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 92 ملفاً · 8570 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 349 · Export.kt 315 · Publish.kt 275 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · HomeScreen.kt 215 · 4.json 209
+> 92 ملفاً · 8475 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 349 · Export.kt 317 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215 · ExportManager.kt 211
 
 ### ./
 - CLAUDE.md (44)
@@ -45,7 +45,7 @@
 - Modules.kt (29): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
 - BlogIndex.kt (81): BlogPost, BlogIndex
-- ExportManager.kt (163): ExportSummary, ExportFile, ExportUi, ExportManager
+- ExportManager.kt (211): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (102): GenerationService
 - Generator.kt (238): PlanMode, Generator
@@ -56,11 +56,11 @@
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
 - ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
-- PublishManager.kt (127): PublishReport, PublishEntry, PublishManager, BridgeScript
-- Publisher.kt (143): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, ScriptPublisher +1
+- PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
+- Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
-- Site.kt (176): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- Site.kt (174): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (129): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
@@ -85,9 +85,9 @@
 - AppNav.kt (137): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
 - Articles.kt (200): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
-- Export.kt (315): ExportViewModel, ExportScreen, pubModeLabel
+- Export.kt (317): ExportViewModel, ExportScreen, pubModeLabel
 - Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
-- Publish.kt (275): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
+- Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (349): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
@@ -116,13 +116,13 @@
 - GeneratorTest.kt (106): GeneratorTest
 - JobRunnerTest.kt (121): JobRunnerTest
 - ProviderHttpTest.kt (85): ProviderHttpTest
-- PublishTest.kt (141): PublishTest
+- PublishTest.kt (112): PublishTest
 - RenderTest.kt (38): RenderTest
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### docs/
-- publishing.md (24)
-- repo-map.md (47)
+- publishing.md (20)
+- repo-map.md (43)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
