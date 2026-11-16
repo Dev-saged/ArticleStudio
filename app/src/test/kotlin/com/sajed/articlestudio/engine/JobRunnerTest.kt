@@ -34,6 +34,7 @@ class JobRunnerTest {
     private val server = MockWebServer()
     private lateinit var db: AppDb
     private lateinit var runner: JobRunner
+    private val postCalls = ArrayList<String>()
     private var metaCalls = 0
 
     private fun words(n: Int) = List(n) { "كلمة" }.joinToString(" ")
@@ -82,7 +83,7 @@ ${words(30)}
         val http = OkHttpClient(); val bus = RunBus()
         val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), SiteStore(ctx))
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), SiteStore(ctx), PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" })
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }
@@ -105,6 +106,14 @@ ${words(30)}
         assertEquals("done", j.state); assertEquals(2, j.next); assertEquals(2, j.done)
         val a = db.articles().readyFor("default").first()
         assertTrue(AppJson.decodeFromString(Article.serializer(), a.data).words >= 360)
+    }
+
+    @Test fun finishedJobRunsAutoPipelineOnceAndReportsResult() = runBlocking {
+        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل")
+        await(2)
+        val t0 = System.currentTimeMillis()
+        while (runner.state.value.result.isEmpty() && System.currentTimeMillis() - t0 < 5_000) Thread.sleep(50)
+        assertEquals(listOf("default"), postCalls); assertEquals("تم النشر: 2 مقالاً", runner.state.value.result)
     }
 
     @Test fun resumeContinuesFromTheStoredIndexOnly() = runBlocking {

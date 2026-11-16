@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 data class JobUi(
     val running: Boolean = false, val jobId: Long = 0, val total: Int = 0, val done: Int = 0,
-    val failed: Int = 0, val resumable: Boolean = false, val phase: String = "",
+    val failed: Int = 0, val resumable: Boolean = false, val phase: String = "", val result: String = "",
 )
 
 /** يشغّل المهمة في نطاق التطبيق ويحفظ كل مقال فور اكتماله؛ يستأنف من الفهرس المخزّن بعد أي توقف. */
@@ -32,6 +32,7 @@ data class JobUi(
 class JobRunner @Inject constructor(
     private val gen: Generator, private val jobs: JobDao, private val arts: ArticleDao,
     private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex, private val sites: SiteStore,
+    private val post: PostRun,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _state = MutableStateFlow(JobUi())
@@ -134,9 +135,17 @@ class JobRunner @Inject constructor(
             }
             jobs.upsert(job.copy(state = "done"))
             bus.log("اكتمل التوليد", "o"); live.set("اكتمل التوليد: ${job.done} مقالاً جاهزاً للتصدير")
-            _state.value = JobUi(false, job.id, topics.size, job.done, job.failed)
+            var result = ""
+            if (site.autoExport && job.done > 0) {
+                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = "المسار التلقائي: تصدير ثم رفع ثم نشر")
+                bus.log("بدء المسار التلقائي بعد التوليد")
+                result = try { post.run(site.id) { t -> _state.update { it.copy(phase = t) } } }
+                catch (e: CancellationException) { throw e } catch (e: Exception) { "تعذّر المسار التلقائي: " + clamp(e.message, 80) }
+                bus.log(result, if (result.startsWith("تعذّر") || result.startsWith("توقف")) "e" else "o"); live.set(result)
+            }
+            _state.value = JobUi(false, job.id, topics.size, job.done, job.failed, result = result)
         } catch (e: CancellationException) {
-            withContext(NonCancellable) { jobs.upsert(job.copy(state = "paused")) }
+            withContext(NonCancellable) { jobs.upsert(job.copy(state = if (job.next >= job.total) "done" else "paused")) }
             bus.log("أُوقفت المهمة", "w"); live.set("متوقف مؤقتاً: ${job.done}/${job.total}")
             _state.value = JobUi(false, job.id, job.total, job.done, job.failed, resumable = job.next < job.total)
             throw e

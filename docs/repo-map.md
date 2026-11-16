@@ -10,6 +10,7 @@
 - التنقل (5 تبويبات)، الحواف `EdgeBar`، الشريط الحي → `ui/nav/AppNav.kt`
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
+- المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
 - لوحة المواقع ومعالج الإضافة (3 خطوات من المخططات) → `ui/screens/Sites.kt` → `SiteForms`، `SitesScreen`
 - Room v4 + ترحيلات (site_id، quality، remote_url) → `data/Db.kt`، `data/Entities.kt` → `Migrations`
 - المفاتيح/المزودون → `data/{KeyBackup,Providers,SecretStore,Stores}.kt`؛ التوليد → `engine/{Generator,JobRunner}.kt`؛ GitHub → `engine/GitHubClient.kt`
@@ -37,6 +38,7 @@
 - قوائم Room تقرأ `ArticleRow` (بلا JSON)؛ الجودة عمود `quality`.
 
 ## Open issues
+- المؤقت: WorkManager دوري (ساعة كحد أدنى) قد يتأخر مع Doze؛ العامل ≤10 دقائق فتُستأنف المهمة المقطوعة في الدورة التالية. لم يُجرَّب على جهاز.
 - لم يُجرَّب فعلياً: نشر حقيقي أو تفويض جوجل (مُختبَر بخادم وهمي)، وسلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
 - لم يُجرَّب: توليد/تصدير موقع غير الرياضة بمزودات حقيقية؛ سلاسة التنقل على جهاز فعلي.
 - لم يُشغَّل على جهاز: الخدمة الأمامية، Keystore، الأنيميشن؛ ولم تُجرَّب مزودات حقيقية ولا ESPN ولا رفع GitHub (خادم وهمي فقط).
