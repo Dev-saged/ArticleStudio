@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 92 ملفاً · 8475 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 349 · Export.kt 317 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215 · ExportManager.kt 211
+> 95 ملفاً · 8717 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 358 · Export.kt 317 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215 · ExportManager.kt 211
 
 ### ./
 - CLAUDE.md (44)
@@ -20,7 +20,7 @@
 - repomap.yml (41)
 - unpack-zip.yml (79)
 ### app/
-- build.gradle.kts (82)
+- build.gradle.kts (83)
 ### app/schemas/com.sajed.articlestudio.data.AppDb/
 - 1.json (139)
 - 2.json (181)
@@ -31,7 +31,7 @@
 ### app/src/main/assets/
 - studio-data.json (1)
 ### app/src/main/kotlin/com/sajed/articlestudio/
-- App.kt (8): App
+- App.kt (27): App
 - BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
@@ -44,6 +44,8 @@
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
 - Modules.kt (29): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
+- AutoPipeline.kt (54): interface, AutoPipeline, PipelineModule
+- AutoRun.kt (95): AutoPlan, AutoRunner, AutoScheduler, AutoEntry, AutoWorker
 - BlogIndex.kt (81): BlogPost, BlogIndex
 - ExportManager.kt (211): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
@@ -52,7 +54,7 @@
 - GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
 - ImageRenderer.kt (165): RenderedImages, ImageRenderer
-- JobRunner.kt (150): JobUi, JobRunner
+- JobRunner.kt (159): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
 - ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
@@ -60,7 +62,7 @@
 - Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
-- Site.kt (174): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- Site.kt (180): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (129): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
@@ -88,7 +90,7 @@
 - Export.kt (317): ExportViewModel, ExportScreen, pubModeLabel
 - Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
-- Sites.kt (349): SiteStats, SiteForms, SitesViewModel, SitesScreen
+- Sites.kt (358): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -111,10 +113,11 @@
 - CoreTest.kt (39): CoreTest
 - MigrationTest.kt (51): MigrationTest
 ### app/src/test/kotlin/com/sajed/articlestudio/engine/
+- AutoRunTest.kt (40): AutoRunTest
 - EngineTest.kt (83): EngineTest
 - Fixtures.kt (14): sampleArticle
 - GeneratorTest.kt (106): GeneratorTest
-- JobRunnerTest.kt (121): JobRunnerTest
+- JobRunnerTest.kt (130): JobRunnerTest
 - ProviderHttpTest.kt (85): ProviderHttpTest
 - PublishTest.kt (112): PublishTest
 - RenderTest.kt (38): RenderTest
