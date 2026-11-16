@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 98 ملفاً · 9194 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 292 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215
+> 98 ملفاً · 9230 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 292 · ProviderEngine.kt 289 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215
 
 ### ./
 - CLAUDE.md (44)
@@ -57,13 +57,13 @@
 - JobRunner.kt (171): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
-- ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
+- ProviderEngine.kt (289): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
 - PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
 - Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
 - Site.kt (180): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
-- SiteProfiler.kt (129): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
+- SiteProfiler.kt (130): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (131): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
@@ -120,15 +120,15 @@
 - GeneratorTest.kt (106): GeneratorTest
 - JobRunnerTest.kt (141): JobRunnerTest
 - MotifTest.kt (22): MotifTest
-- ProviderHttpTest.kt (85): ProviderHttpTest
+- ProviderHttpTest.kt (100): ProviderHttpTest
 - PublishTest.kt (112): PublishTest
 - RenderTest.kt (58): RenderTest
-- SiteProfilerTest.kt (50): SiteProfilerTest
+- SiteProfilerTest.kt (51): SiteProfilerTest
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### docs/
 - publishing.md (20)
-- repo-map.md (44)
+- repo-map.md (43)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
