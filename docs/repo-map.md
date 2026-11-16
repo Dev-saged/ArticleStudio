@@ -18,7 +18,7 @@
 - XML بلوجر، التصدير، التسمية، الخدمة الأمامية → `engine/{XmlBuilder,ExportManager,ExportNaming,GenerationService}.kt`
 
 ## Decisions
-- كل موقع: سجل/فهرس/مقالات/مهام/مجلد تصدير مستقلة بمفتاح `siteId`؛ الموقع `default` = سبورت لايف 24 الأصلي ويحتفظ بقائمة `seed`.
+- كل موقع مستقل بمفتاح `siteId`؛ `default` = سبورت لايف 24 ويحتفظ بقائمة `seed`.
 - كل مقال يُحفظ في Room فور اكتماله؛ المهمة تستأنف من `jobs.next` بعد أي توقف.
 - الصور بإيداع واحد لفرع `blog-images`، روابط jsDelivr بمعرّف الإيداع.
 - رقم البناء = `GITHUB_RUN_NUMBER`؛ التاج `vX.Y.Z-bN`.
