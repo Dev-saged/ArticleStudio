@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 data class JobUi(
     val running: Boolean = false, val jobId: Long = 0, val total: Int = 0, val done: Int = 0,
-    val failed: Int = 0, val resumable: Boolean = false, val phase: String = "", val result: String = "",
+    val failed: Int = 0, val resumable: Boolean = false, val phase: String = "", val result: String = "", val dup: Int = 0,
 )
 
 /** يشغّل المهمة في نطاق التطبيق ويحفظ كل مقال فور اكتماله؛ يستأنف من الفهرس المخزّن بعد أي توقف. */
@@ -82,8 +82,7 @@ class JobRunner @Inject constructor(
         run = scope.launch {
             val e = arts.byId(id) ?: return@launch
             val site = sites.get(e.siteId)
-            val topic = if (e.status == "failed") AppJson.decodeFromString(Topic.serializer(), e.data)
-            else AppJson.decodeFromString(Article.serializer(), e.data).let { a -> Topic(a.topic, labels = a.labels, ref = a.ref, refs = a.refs) }
+            val topic = runCatching { AppJson.decodeFromString(Article.serializer(), e.data) }.getOrNull()?.takeIf { e.status != "failed" }?.let { a -> Topic(a.topic, labels = a.labels, ref = a.ref, refs = a.refs) } ?: AppJson.decodeFromString(Topic.serializer(), e.data)
             _state.update { it.copy(running = true, phase = "إعادة توليد: ${clamp(topic.topic, 40)}") }
             live.set("إعادة توليد: ${clamp(topic.topic, 50)}")
             try {
@@ -99,6 +98,7 @@ class JobRunner @Inject constructor(
 
     private suspend fun execute(job0: JobEntity) {
         var job = job0
+        var dup = 0
         val site = sites.get(job.siteId)
         _state.value = JobUi(true, job.id, job.total, job.done, job.failed, phase = "تخطيط المواضيع")
         try {
@@ -116,34 +116,46 @@ class JobRunner @Inject constructor(
                 val t = topics[job.next]
                 bus.log("(${job.next + 1}/${topics.size}) ${clamp(t.topic, 50)}")
                 live.set("يكتب (${job.next + 1}/${topics.size}): ${clamp(t.topic, 44)}")
-                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = clamp(t.topic, 50))
+                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = clamp(t.topic, 50), dup = dup)
                 var ok = false
+                var isDup = false
                 try {
-                    val a = gen.article(site, t)
-                    val dup = blog.similar(site.url, a.title)
-                    if (dup != null) bus.log("تنبيه: عنوان قريب من مقال منشور «${clamp(dup.title, 40)}»", "w")
-                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, siteId = site.id, quality = a.quality, error = dup?.let { "قريب من: " + clamp(it.title, 60) }.orEmpty(), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Article.serializer(), a)))
-                    bus.log("تم: ${a.words} كلمة عبر ${a.provider}", "o"); ok = true
+                    val early = blog.similar(site.url, t.topic)?.title ?: arts.titlesFor(site.id).firstOrNull { similarTitles(t.topic, it) }
+                    if (early != null) {
+                        arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = t.topic, slug = "", status = "duplicate", error = clamp(early, 120), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Topic.serializer(), t), siteId = site.id))
+                        bus.log("استُثني مكرر: «${clamp(t.topic, 36)}» يشبه «${clamp(early, 36)}»", "i"); dup++; isDup = true
+                    } else {
+                        val a = gen.article(site, t)
+                        val late = blog.similar(site.url, a.title)?.title
+                        val json = AppJson.encodeToString(Article.serializer(), a)
+                        if (late != null) {
+                            arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "duplicate", words = a.words, provider = a.provider, siteId = site.id, quality = a.quality, error = clamp(late, 120), updatedAt = System.currentTimeMillis(), data = json))
+                            bus.log("استُثني مكرر بعد التوليد: «${clamp(a.title, 36)}» يشبه «${clamp(late, 36)}»", "i"); dup++; isDup = true
+                        } else {
+                            arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = a.title, slug = a.slug, labels = a.labels.joinToString(","), status = "ready", words = a.words, provider = a.provider, siteId = site.id, quality = a.quality, updatedAt = System.currentTimeMillis(), data = json))
+                            bus.log("تم: ${a.words} كلمة عبر ${a.provider}", "o"); ok = true
+                        }
+                    }
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     bus.log("فشل الموضوع: " + clamp(e.message, 70), "e")
                     arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = t.topic, slug = "", status = "failed", error = clamp(e.message, 120), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Topic.serializer(), t)))
                 }
-                job = job.copy(next = job.next + 1, done = job.done + if (ok) 1 else 0, failed = job.failed + if (ok) 0 else 1)
+                job = job.copy(next = job.next + 1, done = job.done + if (ok) 1 else 0, failed = job.failed + if (ok || isDup) 0 else 1)
                 jobs.upsert(job)
-                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = "")
+                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = "", dup = dup)
                 delay(1200)
             }
             jobs.upsert(job.copy(state = "done"))
-            bus.log("اكتمل التوليد", "o"); live.set("اكتمل التوليد: ${job.done} مقالاً جاهزاً للتصدير")
+            bus.log("اكتمل التوليد: ${job.done} جاهز" + (if (dup > 0) " · $dup مكرر مستثنى" else "") + (if (job.failed > 0) " · ${job.failed} فاشل" else ""), "o"); live.set("اكتمل التوليد: ${job.done} مقالاً جاهزاً للتصدير")
             var result = ""
             if (site.autoExport && job.done > 0) {
-                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = "المسار التلقائي: تصدير ثم رفع ثم نشر")
+                _state.value = JobUi(true, job.id, topics.size, job.done, job.failed, phase = "المسار التلقائي: تصدير ثم رفع ثم نشر", dup = dup)
                 bus.log("بدء المسار التلقائي بعد التوليد")
                 result = try { post.run(site.id) { t -> _state.update { it.copy(phase = t) } } }
                 catch (e: CancellationException) { throw e } catch (e: Exception) { "تعذّر المسار التلقائي: " + clamp(e.message, 80) }
                 bus.log(result, if (result.startsWith("تعذّر") || result.startsWith("توقف")) "e" else "o"); live.set(result)
             }
-            _state.value = JobUi(false, job.id, topics.size, job.done, job.failed, result = result)
+            _state.value = JobUi(false, job.id, topics.size, job.done, job.failed, result = result, dup = dup)
         } catch (e: CancellationException) {
             withContext(NonCancellable) { jobs.upsert(job.copy(state = if (job.next >= job.total) "done" else "paused")) }
             bus.log("أُوقفت المهمة", "w"); live.set("متوقف مؤقتاً: ${job.done}/${job.total}")

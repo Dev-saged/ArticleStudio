@@ -150,24 +150,30 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
 
     val files by vm.files.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<String?>(null) }
+    var showFiles by remember { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item("t") { Text("التصدير", style = MaterialTheme.typography.headlineLarge, color = c.text) }
+        item("t") {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("السجل والنشر", style = MaterialTheme.typography.headlineLarge, color = c.text)
+                Text("بعد التوليد يصدّر التطبيق وينشر تلقائياً؛ هنا تتابع النتائج وملفاتك.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+            }
+        }
         item("k") {
             Panel(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (ready > 0) {
                         Text(ready.toString().ltr(), style = NumberStyle, color = c.goldText)
-                        Text(if (ready == 1) "مقال جاهز للتصدير" else "مقالات جاهزة للتصدير", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                        Text(if (ready == 1) "مقال بانتظار التصدير والنشر" else "مقالات بانتظار التصدير والنشر", style = MaterialTheme.typography.bodySmall, color = c.muted)
                     } else {
-                        Text("لا توجد مقالات جديدة للتصدير", style = MaterialTheme.typography.titleMedium, color = c.text)
-                        Text(if (files.isEmpty()) "ولّد مقالات من الرئيسية وتظهر هنا جاهزة." else "كل ما ولّدته صُدّر سابقاً، وملفاتك محفوظة بالأسفل.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                        Text("لا شيء بانتظار النشر", style = MaterialTheme.typography.titleMedium, color = c.text)
+                        Text(if (files.isEmpty()) "ولّد مقالات من الرئيسية وتُصدَّر وتُنشر تلقائياً." else "كل ما ولّدته صُدّر ونُشر تلقائياً، وملفاتك محفوظة بالأسفل.", style = MaterialTheme.typography.bodySmall, color = c.muted)
                     }
                 }
             }
         }
-        item("go") {
-            PrimaryButton(if (ui.running) "جارٍ التصدير…" else "صدّر XML الآن", Icons.Export, vm::export, enabled = ready > 0 && !ui.running && !busy)
+        if (ready > 0 || ui.running) item("go") {
+            PrimaryButton(if (ui.running) "جارٍ التصدير…" else "أكمل التصدير والنشر الآن", Icons.Export, vm::export, enabled = ready > 0 && !ui.running && !busy)
         }
         if (ui.running) item("prog") {
             val frac = if (ui.total > 0) ui.done.toFloat() / ui.total else 0f
@@ -215,20 +221,14 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
         if (pub.running || pub.report != null) item("pub") {
             PublishCard(pub, onRetry = vm::retry, onConsent = { consent.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }, onDismiss = vm::dismissPub)
         }
-        item("pubfile") {
-            Panel(Modifier.fillMaxWidth().clickable(enabled = !busy) { pick.launch(arrayOf("text/xml", "application/xml", "application/atom+xml", "*/*")) }) {
-                Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Icon(Icons.Link, null, tint = c.goldText)
-                    Column(Modifier.weight(1f)) {
-                        Text("نشر ملف XML من الجهاز", style = MaterialTheme.typography.titleMedium, color = c.text)
-                        Text("اختر ملفاً وسينشره التطبيق على «${pubSite.name}» (${pubModeLabel(pubSite.pubMode)}).", style = MaterialTheme.typography.bodySmall, color = c.muted)
-                    }
+        if (files.isNotEmpty()) {
+            item("fh") {
+                Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { showFiles = !showFiles }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text("ملفاتي المصدّرة (${files.size})".replace(Regex("\\d+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f))
+                    Text(if (showFiles) "إخفاء" else "عرض", style = MaterialTheme.typography.labelLarge, color = c.goldText)
                 }
             }
-        }
-        if (files.isNotEmpty()) {
-            item("fh") { Text("ملفاتي المصدّرة (${files.size})".replace(Regex("\\d+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.titleMedium, color = c.text) }
-            items(files.size, key = { "f" + files[it].name }) { i ->
+            if (showFiles) items(files.size, key = { "f" + files[it].name }) { i ->
                 val f = files[i]
                 Panel(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -249,9 +249,18 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth().clickable { settings = !settings }.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         androidx.compose.material3.Icon(Icons.Settings, null, tint = c.goldText)
-                        Text("إعدادات GitHub والنشر", style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f))
+                        Text("الاتصال والإعدادات المتقدمة", style = MaterialTheme.typography.titleMedium, color = c.text, modifier = Modifier.weight(1f))
                     }
                     if (settings) {
+            Panel(Modifier.fillMaxWidth().clickable(enabled = !busy) { pick.launch(arrayOf("text/xml", "application/xml", "application/atom+xml", "*/*")) }) {
+                Row(Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Icon(Icons.Link, null, tint = c.goldText)
+                    Column(Modifier.weight(1f)) {
+                        Text("نشر ملف XML من الجهاز", style = MaterialTheme.typography.titleMedium, color = c.text)
+                        Text("اختر ملفاً وسينشره التطبيق على «${pubSite.name}» (${pubModeLabel(pubSite.pubMode)}).", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    }
+                }
+            }
                         SchemaForm(Schemas.github, form, errors) { k, v -> vm.change(k, v) }
                         if (vm.hasToken) Text("يوجد توكن محفوظ؛ اتركه فارغاً للإبقاء عليه.", style = MaterialTheme.typography.bodySmall, color = c.muted)
                         Text(if (busy) "جارٍ الفحص…" else "فحص التوكن والصلاحيات", style = MaterialTheme.typography.labelLarge, color = c.goldText,
@@ -304,7 +313,7 @@ private fun PublishCard(ui: com.sajed.articlestudio.engine.ExportManager.PubUi, 
                     )
                     androidx.compose.material3.Icon(Icons.Close, "إخفاء", Modifier.size(44.dp).clickable(onClick = onDismiss).padding(12.dp), tint = c.muted)
                 }
-                if (r.skipped > 0) Text("تخطّى ${r.skipped.toString().ltr()} منشوراً سابقاً.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                if (r.skipped > 0) Text("استُثني ${r.skipped.toString().ltr()} مكرراً: منشور سابقاً على المدونة.", style = MaterialTheme.typography.bodySmall, color = c.goldText)
                 r.fatal?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = c.red) }
                 r.failed.take(4).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = c.red, maxLines = 3) }
                 if (r.ok > 0 && r.state == com.sajed.articlestudio.engine.PubState.Draft) Text("افتح بلوجر ← المنشورات ← المسودات لمراجعتها ونشرها.", style = MaterialTheme.typography.bodySmall, color = c.muted)

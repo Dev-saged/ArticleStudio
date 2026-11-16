@@ -27,10 +27,10 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE status = 'ready' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
     suspend fun readyFor(siteId: String): List<ArticleEntity>
 
-    @Query("SELECT title FROM articles WHERE status != 'failed' AND site_id = :siteId")
+    @Query("SELECT title FROM articles WHERE status NOT IN ('failed','duplicate') AND site_id = :siteId")
     suspend fun titlesFor(siteId: String): List<String>
 
-    @Query("SELECT id FROM articles WHERE quality = 0 AND status != 'failed' AND data != ''")
+    @Query("SELECT id FROM articles WHERE quality = 0 AND status NOT IN ('failed','duplicate') AND data != ''")
     suspend fun needQuality(): List<Long>
 
     @Query("UPDATE articles SET quality = :q WHERE id = :id")
@@ -39,7 +39,7 @@ interface ArticleDao {
     @Query("UPDATE articles SET remote_url = :url WHERE id = :id")
     suspend fun setRemote(id: Long, url: String)
 
-    @Query("SELECT * FROM articles WHERE site_id = :siteId AND title = :title AND status != 'failed' LIMIT 1")
+    @Query("SELECT * FROM articles WHERE site_id = :siteId AND title = :title AND status NOT IN ('failed','duplicate') LIMIT 1")
     suspend fun byTitle(siteId: String, title: String): ArticleEntity?
 
     @Query("DELETE FROM articles WHERE site_id = :siteId")

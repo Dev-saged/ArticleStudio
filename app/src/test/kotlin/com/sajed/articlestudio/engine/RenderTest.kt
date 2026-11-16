@@ -34,4 +34,24 @@ class RenderTest {
         val j = r.render(sampleArticle())
         assertTrue(j.cover.size > 5_000 && j.info.size > 5_000)
     }
+
+    @Test fun reviewSheetVariety() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val data = StudioData(ctx)
+        val r = ImageRenderer(ctx, data)
+        val out = File(System.getProperty("render.out") ?: "build/render").apply { mkdirs() }
+        val titles = listOf("كيف حطم ميسي رقماً قياسياً جديداً في كأس العالم", "أفضل هواتف 2026 للمصورين المحترفين", "دليل الاستثمار للمبتدئين خطوة بخطوة", "وصفة المنسف الأردني الأصيل", "٧ وجهات سياحية رخيصة لصيف هذا العام", "كيف تحافظ على صحة قلبك بعد الأربعين")
+        val niches = listOf("sport", "tech", "business", "food", "travel", "health")
+        val sums = HashSet<Int>()
+        niches.forEachIndexed { i, n ->
+            val site = SiteConfig(id = "t$i", name = "سبورت لايف 24", url = "https://sport1live24.blogspot.com", niche = n)
+            val m = Niches.of(n).motifs.first()
+            val a = sampleArticle(slug = "s$i", title = titles[i], motif = m).copy(hue = Niches.of(n).hue + i * 7)
+            val cv = r.coverBitmap(a, site)
+            sums += (0 until 60).map { cv.getPixel(it * 19, 40 + it * 7) }.hashCode()
+            File(out, "rev-cover-$n.png").outputStream().use { cv.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            if (i < 2) File(out, "rev-card-$n.png").outputStream().use { r.cardBitmap(a, site).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        assertTrue(sums.size == niches.size)
+    }
 }
