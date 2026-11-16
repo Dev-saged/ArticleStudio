@@ -75,19 +75,6 @@ class GuideStep(val title: String, val body: String, val copy: String? = null, v
 
 object PublishGuide {
     const val CLOUD = "https://console.cloud.google.com/"
-    const val SCRIPT = "https://script.google.com/"
-
-    fun script(code: String) = listOf(
-        GuideStep("افتح Apps Script", "ادخل إلى script.google.com بنفس حساب جوجل الذي يملك المدونة، ثم اضغط «مشروع جديد» (New project)."),
-        GuideStep("الصق الكود", "احذف الكود الافتراضي كله والصق الكود التالي كما هو. فيه سرّ خاص بهذا الموقع، فلا تشاركه مع أحد.", code, "نسخ الكود"),
-        GuideStep("أضف خدمة Blogger", "من القائمة اليسرى اضغط «الخدمات» (Services) وعلامتها +، اختر «Blogger API» ثم اضغط «إضافة» (Add). لا تغيّر اسم المعرّف Blogger."),
-        GuideStep("ابدأ عملية نشر جديدة", "اضغط «نشر» (Deploy) أعلى يمين الشاشة ثم «عملية نشر جديدة» (New deployment). ستظهر نافذة «نشر جديد»."),
-        GuideStep("اختر النوع: تطبيق الويب", "في النافذة اضغط أيقونة الترس بجانب «اختيار النوع» (Select type) ثم اختر «تطبيق الويب» (Web app). لا تختر «واجهة برمجة تطبيقات قابلة للتنفيذ» ولا «إضافة» ولا «مكتبة»."),
-        GuideStep("اضبط الإعدادات", "الوصف: اتركه فارغاً أو اكتب أي اسم.\n«تنفيذ التطبيق كـ» (Execute as): أنا، أي بريدك.\n«من لديه حق الوصول» (Who has access): أي شخص (Anyone).\nثم اضغط «نشر» (Deploy)."),
-        GuideStep("امنح الصلاحيات", "اضغط «منح الصلاحيات» (Authorize access) واختر حسابك. ستظهر «Google hasn't verified this app»: اضغط «متقدم» (Advanced) ثم «الانتقال إلى المشروع (غير آمن)» ثم «السماح» (Allow). هذا آمن لأن المشروع مشروعك أنت."),
-        GuideStep("انسخ رابط تطبيق الويب", "بعد النشر يظهر «عنوان URL لتطبيق الويب» (Web app URL) وينتهي بـ /exec. انسخه والصقه في الحقل أدناه، ثم اضغط «حفظ واختبار». إن عدّلت الكود لاحقاً فاختر نشر ← إدارة عمليات النشر ← تعديل ← إصدار جديد."),
-    )
-
     fun google(pkg: String, sha1: String) = listOf(
         GuideStep("أنشئ مشروعاً", "افتح console.cloud.google.com بحساب المدونة، ثم أنشئ مشروعاً جديداً بأي اسم."),
         GuideStep("فعّل Blogger API", "من «APIs & Services» ← «Library» ابحث عن «Blogger API v3» ثم اضغط «Enable»."),
@@ -115,21 +102,11 @@ class PublishViewModel @Inject constructor(val store: SiteStore, private val pm:
     val consent: StateFlow<android.content.IntentSender?> = _consent.asStateFlow()
 
     fun update(s: SiteConfig) { store.upsert(s); _test.value = TestUi.Idle }
-    fun script(s: SiteConfig) = pm.script(s)
-    fun resetSecret(s: SiteConfig) { pm.resetSecret(s.id); _test.value = TestUi.Idle }
 
     fun runTest(siteId: String) = viewModelScope.launch {
         _test.value = TestUi.Running
         val r = pm.test(store.get(siteId))
         _test.value = r.fold({ TestUi.Ok(it) }, { TestUi.Fail(clamp(it.message, 200)) })
-    }
-
-    /** يحفظ رابط الجسر بعد التحقق منه ثم يختبره. */
-    fun saveScript(s: SiteConfig, url: String) {
-        val n = s.copy(scriptUrl = url.trim())
-        val e = SiteRules.validate(n)["scriptUrl"]
-        if (e != null) { _test.value = TestUi.Fail(e); return }
-        store.upsert(n); runTest(s.id)
     }
 
     fun connect(siteId: String) = viewModelScope.launch {
@@ -166,7 +143,6 @@ fun PublishSheet(siteId: String, onClose: () -> Unit, vm: PublishViewModel = hil
     val site = sites.firstOrNull { it.id == siteId } ?: return
     val test by vm.test.collectAsStateWithLifecycle()
     val consent by vm.consent.collectAsStateWithLifecycle()
-    var url by remember(site.id) { mutableStateOf(site.scriptUrl) }
     var copied by remember { mutableStateOf("") }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { vm.onConsent(site.id, it.data) }
     LaunchedEffect(consent) { consent?.let { launcher.launch(IntentSenderRequest.Builder(it).build()) } }
@@ -179,7 +155,6 @@ fun PublishSheet(siteId: String, onClose: () -> Unit, vm: PublishViewModel = hil
             Section("طريقة النشر")
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppChip("متوقف", site.pubMode == "off", { vm.update(site.copy(pubMode = "off")) })
-                AppChip("جسر Apps Script", site.pubMode == "script", { vm.update(site.copy(pubMode = "script")) })
                 AppChip("حساب جوجل", site.pubMode == "google", { vm.update(site.copy(pubMode = "google")) })
             }
             if (site.pubMode == "off") {
@@ -198,26 +173,14 @@ fun PublishSheet(siteId: String, onClose: () -> Unit, vm: PublishViewModel = hil
                         else -> "تصل المقالات إلى مسودات بلوجر لتراجعها وتنشرها بنفسك. هذا الأكثر أماناً."
                     }, style = MaterialTheme.typography.bodySmall, color = c.muted,
                 )
-                Section(if (site.pubMode == "script") "ربط جسر Apps Script" else "ربط حساب جوجل")
-                val steps = if (site.pubMode == "script") PublishGuide.script(vm.script(site)) else PublishGuide.google(ctx.packageName, SigningInfo.sha1(ctx))
+                Section("ربط حساب جوجل")
+                val steps = PublishGuide.google(ctx.packageName, SigningInfo.sha1(ctx))
                 steps.forEachIndexed { i, st ->
                     StepCard(i + 1, st, copied == st.title) { st.copy?.let { t -> copy(ctx, st.title, t); copied = st.title } }
                 }
-                if (site.pubMode == "script") {
-                    OutlinedTextField(
-                        value = url, onValueChange = { url = it.filter { ch -> !ch.isWhitespace() }.take(300) }, modifier = Modifier.fillMaxWidth(),
-                        label = { Text("رابط تطبيق الويب") }, singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = c.text, textDirection = TextDirection.Ltr),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.goldText, unfocusedBorderColor = c.line, focusedLabelColor = c.goldText, unfocusedLabelColor = c.muted, cursorColor = c.goldText),
-                    )
-                    PrimaryButton("حفظ واختبار", Icons.Check, { vm.saveScript(site, url) }, enabled = test !is TestUi.Running)
-                    Text("إعادة توليد السر (تحتاج لصق الكود ونشر نسخة جديدة)", style = MaterialTheme.typography.labelMedium, color = c.muted, modifier = Modifier.clickable { vm.resetSecret(site) }.heightIn(min = 44.dp).padding(top = 12.dp))
-                } else {
-                    if (site.googleAccount.isNotBlank()) Text("الحساب المربوط: ${site.googleAccount.ltr()}", style = MaterialTheme.typography.bodyMedium, color = c.text)
-                    PrimaryButton(if (site.googleAccount.isBlank()) "ربط حساب جوجل" else "إعادة الربط واختبار", Icons.Link, { vm.connect(site.id) }, enabled = test !is TestUi.Running)
-                    if (site.googleAccount.isNotBlank()) Text("فك الربط", style = MaterialTheme.typography.labelMedium, color = c.red, modifier = Modifier.clickable { vm.disconnect(site.id) }.heightIn(min = 44.dp).padding(top = 12.dp))
-                }
+                if (site.googleAccount.isNotBlank()) Text("الحساب المربوط: ${site.googleAccount.ltr()}", style = MaterialTheme.typography.bodyMedium, color = c.text)
+                PrimaryButton(if (site.googleAccount.isBlank()) "ربط حساب جوجل" else "إعادة الربط واختبار", Icons.Link, { vm.connect(site.id) }, enabled = test !is TestUi.Running)
+                if (site.googleAccount.isNotBlank()) Text("فك الربط", style = MaterialTheme.typography.labelMedium, color = c.red, modifier = Modifier.clickable { vm.disconnect(site.id) }.heightIn(min = 44.dp).padding(top = 12.dp))
                 when (val t = test) {
                     TestUi.Idle -> Unit
                     TestUi.Running -> Text("جارٍ الاتصال…", style = MaterialTheme.typography.bodyMedium, color = c.muted)
@@ -244,10 +207,9 @@ private fun Compare() {
     val c = AppTheme.colors
     Panel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("أيهما أنسب لك؟", style = MaterialTheme.typography.titleMedium, color = c.text)
-            Text("جسر Apps Script: الأسرع إعداداً، بلا Google Cloud. تلصق كوداً مرة واحدة لكل حساب. مناسب لمن يسلّم التطبيق لغيره أو يدير حسابات كثيرة.", style = MaterialTheme.typography.bodyMedium, color = c.text)
-            Text("حساب جوجل: ضغطة واحدة بعد إعداد مشروع Cloud مرة واحدة. أنعم استعمالاً وأقل خطوات يدوية لاحقاً.", style = MaterialTheme.typography.bodyMedium, color = c.text)
-            Text("اختر إحداهما أعلاه لتظهر خطواتها.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+            Text("النشر المباشر على بلوجر", style = MaterialTheme.typography.titleMedium, color = c.text)
+            Text("يعتمد على Blogger API الرسمي بحساب جوجل: يضبط العنوان والمحتوى والتصنيفات، ويعيد رابط كل منشور، ويدعم المسودة والنشر والجدولة. يحتاج إعداد مشروع Cloud مرة واحدة.", style = MaterialTheme.typography.bodyMedium, color = c.text)
+            Text("اختر «حساب جوجل» أعلاه لتظهر خطوات الربط.", style = MaterialTheme.typography.bodySmall, color = c.muted)
         }
     }
 }

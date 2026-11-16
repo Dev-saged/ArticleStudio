@@ -105,6 +105,7 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
     fun delete(name: String) = mgr.delete(name)
     fun dismiss() = mgr.clearResult()
     fun dismissPub() = mgr.clearPub()
+    fun retry() { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.retryPublish(); _busy.value = false } }
     fun publishFile(name: String) { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.publishFile(sites.activeId.value, name); _busy.value = false } }
     fun publishUri(c: Context, uri: android.net.Uri) {
         if (_busy.value) return
@@ -212,7 +213,7 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
             }
         } }
         if (pub.running || pub.report != null) item("pub") {
-            PublishCard(pub, onConsent = { consent.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }, onDismiss = vm::dismissPub)
+            PublishCard(pub, onRetry = vm::retry, onConsent = { consent.launch(androidx.activity.result.IntentSenderRequest.Builder(it).build()) }, onDismiss = vm::dismissPub)
         }
         item("pubfile") {
             Panel(Modifier.fillMaxWidth().clickable(enabled = !busy) { pick.launch(arrayOf("text/xml", "application/xml", "application/atom+xml", "*/*")) }) {
@@ -278,10 +279,10 @@ private fun FileAction(text: String, icon: androidx.compose.ui.graphics.vector.I
     }
 }
 
-internal fun pubModeLabel(m: String) = when (m) { "script" -> "جسر Apps Script"; "google" -> "حساب جوجل"; else -> "النشر المباشر متوقف" }
+internal fun pubModeLabel(m: String) = if (m == "google") "حساب جوجل" else "النشر المباشر متوقف"
 
 @Composable
-private fun PublishCard(ui: com.sajed.articlestudio.engine.ExportManager.PubUi, onConsent: (android.content.IntentSender) -> Unit, onDismiss: () -> Unit) {
+private fun PublishCard(ui: com.sajed.articlestudio.engine.ExportManager.PubUi, onRetry: () -> Unit, onConsent: (android.content.IntentSender) -> Unit, onDismiss: () -> Unit) {
     val c = AppTheme.colors
     val r = ui.report
     Panel(Modifier.fillMaxWidth()) {
@@ -308,6 +309,7 @@ private fun PublishCard(ui: com.sajed.articlestudio.engine.ExportManager.PubUi, 
                 r.failed.take(4).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = c.red, maxLines = 3) }
                 if (r.ok > 0 && r.state == com.sajed.articlestudio.engine.PubState.Draft) Text("افتح بلوجر ← المنشورات ← المسودات لمراجعتها ونشرها.", style = MaterialTheme.typography.bodySmall, color = c.muted)
                 r.consent?.let { FileAction("ربط حساب جوجل والمتابعة", Icons.Link) { onConsent(it) } }
+                if (r.retryable || (r.fatal != null && r.consent == null)) FileAction("متابعة النشر", Icons.Refresh) { onRetry() }
             }
         }
     }
