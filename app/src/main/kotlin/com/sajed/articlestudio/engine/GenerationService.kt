@@ -90,7 +90,7 @@ class GenerationService : Service() {
 
     private fun done(s: JobUi): Notification = base().setAutoCancel(true).setOngoing(false)
         .setContentTitle(if (s.resumable) "توقف التوليد مؤقتاً" else "اكتمل التوليد")
-        .setContentText("${s.done} مقالاً جاهزاً" + if (s.failed > 0) " · ${s.failed} فاشلة" else "").build()
+        .setContentText(s.result.ifEmpty { "${s.done} مقالاً جاهزاً" + if (s.failed > 0) " · ${s.failed} فاشلة" else "" }).build()
 
     companion object {
         const val ACTION_STOP = "com.sajed.articlestudio.STOP"

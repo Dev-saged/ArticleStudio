@@ -108,6 +108,11 @@ object SiteForms {
             Field("schedule", "ساعات بين المقالات المجدولة", FieldType.Number, min = 0, max = 72, hint = "0 = حسب إعداد التصدير العام"),
             Field("repo", "مستودع الصور (اختياري)", hint = "owner/repo، وإلا يُستخدم المستودع العام"),
             Field("branch", "فرع الصور (اختياري)"),
+            Field("autoExport", "تصدير ورفع ونشر تلقائي بعد انتهاء كل توليد", FieldType.Toggle),
+            Field("autoEvery", "توليد تلقائي كل كم ساعة", FieldType.Number, min = 0, max = 24, hint = "0 = متوقف. يعمل في الخلفية ويكمل المسار حتى النشر"),
+            Field("autoCount", "عدد المقالات في كل دورة", FieldType.Number, min = 1, max = 10),
+            Field("autoFrom", "تبدأ الدورات من الساعة", FieldType.Number, min = 0, max = 23, hint = "بتوقيت الجهاز"),
+            Field("autoTo", "وتتوقف عند الساعة", FieldType.Number, min = 1, max = 24, hint = "0 إلى 24 = طوال اليوم"),
             Field("faq", "إضافة قسم الأسئلة الشائعة", FieldType.Toggle),
             Field("tables", "السماح بالجداول", FieldType.Toggle),
             Field("sources", "ذكر المصادر في نهاية المقال", FieldType.Toggle),
@@ -124,6 +129,8 @@ object SiteForms {
         "keywords" to s.keywords.joinToString("، "), "avoid" to s.avoid, "rules" to s.rules,
         "feeds" to s.feeds.joinToString("\n"), "labels" to s.labels.joinToString("، "),
         "count" to s.count.toString(), "schedule" to s.schedule.toString(), "repo" to s.repo, "branch" to s.branch,
+        "autoExport" to s.autoExport.toString(), "autoEvery" to s.autoEvery.toString(), "autoCount" to s.autoCount.toString(),
+        "autoFrom" to s.autoFrom.toString(), "autoTo" to s.autoTo.toString(),
         "faq" to s.faq.toString(), "tables" to s.tables.toString(), "sources" to s.sources.toString(),
     )
 
@@ -139,6 +146,8 @@ object SiteForms {
             feeds = v["feeds"].orEmpty().split('\n', ' ', '\t').map { it.trim() }.filter { it.isNotEmpty() },
             labels = list(v["labels"].orEmpty()), count = v["count"]?.toIntOrNull() ?: base.count, schedule = v["schedule"]?.toIntOrNull() ?: base.schedule,
             repo = v["repo"].orEmpty().trim(), branch = v["branch"].orEmpty().trim(),
+            autoExport = v["autoExport"] == "true", autoEvery = v["autoEvery"]?.toIntOrNull() ?: base.autoEvery, autoCount = v["autoCount"]?.toIntOrNull() ?: base.autoCount,
+            autoFrom = v["autoFrom"]?.toIntOrNull() ?: base.autoFrom, autoTo = v["autoTo"]?.toIntOrNull() ?: base.autoTo,
             faq = v["faq"] == "true", tables = v["tables"] == "true", sources = v["sources"] == "true",
         )
     }

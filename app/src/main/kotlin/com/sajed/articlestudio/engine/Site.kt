@@ -85,6 +85,11 @@ data class SiteConfig(
     val pubMode: String = "off",
     val pubState: String = "draft",
     val googleAccount: String = "",
+    val autoExport: Boolean = true,
+    val autoEvery: Int = 0,
+    val autoCount: Int = 3,
+    val autoFrom: Int = 0,
+    val autoTo: Int = 24,
     val legacySeed: Boolean = false,
     val createdAt: Long = 0,
 ) {
@@ -122,6 +127,7 @@ object SiteRules {
         keywords = s.keywords.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(12), avoid = s.avoid.trim().take(400), rules = s.rules.trim().take(1200),
         feeds = s.feeds.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8), labels = s.labels.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8),
         googleAccount = s.googleAccount.trim(), count = s.count.coerceIn(3, 30), schedule = s.schedule.coerceIn(0, 72),
+        autoEvery = s.autoEvery.coerceIn(0, 24), autoCount = s.autoCount.coerceIn(1, 10), autoFrom = s.autoFrom.coerceIn(0, 23), autoTo = s.autoTo.coerceIn(1, 24),
     )
 
     fun newId(name: String): String = slugify(name, "site") + "-" + System.currentTimeMillis().toString(36).takeLast(4)

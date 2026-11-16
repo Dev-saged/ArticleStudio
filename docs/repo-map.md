@@ -6,14 +6,15 @@
 - الهوية والألوان → `BrandConfig.kt` → `BrandConfig`
 - الثيم، المكونات، الحركة، الأيقونات → `ui/theme/*`، `ui/Components.kt`، `ui/Motion.kt`، `ui/icons/Icons.kt`
 - المخططات → `schema/*`؛ الصور → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ SEO → `XmlBuilder.bodyHtml`؛ الشاشات → `ui/screens/*`
-- الرئيسية: لوحة الكرة، الوضع، السجل → `ui/home/*` → `HomeViewModel`، `PitchBoard`
-- التنقل (5 تبويبات)، الحواف `EdgeBar`، الشريط الحي → `ui/nav/AppNav.kt`
+- الرئيسية → `ui/home/*` → `HomeViewModel`، `PitchBoard`
+- التنقل، `EdgeBar` → `ui/nav/AppNav.kt`
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
+- المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
 - لوحة المواقع ومعالج الإضافة (3 خطوات من المخططات) → `ui/screens/Sites.kt` → `SiteForms`، `SitesScreen`
 - Room v4 + ترحيلات (site_id، quality، remote_url) → `data/Db.kt`، `data/Entities.kt` → `Migrations`
 - المفاتيح/المزودون → `data/{KeyBackup,Providers,SecretStore,Stores}.kt`؛ التوليد → `engine/{Generator,JobRunner}.kt`؛ GitHub → `engine/GitHubClient.kt`
-- فهرس المدونة (منع التكرار) → `engine/BlogIndex.kt`؛ مصادر الأخبار → `engine/NewsSources.kt`
+- فهرس المدونة → `engine/BlogIndex.kt`؛ الأخبار → `engine/NewsSources.kt`
 - XML بلوجر، التصدير، التسمية، الخدمة الأمامية → `engine/{XmlBuilder,ExportManager,ExportNaming,GenerationService}.kt`
 
 ## Decisions
@@ -28,15 +29,14 @@
 - تداخل الواجهة مع أشرطة النظام (targetSdk 36 يفرض edge-to-edge): استعمل `EdgeBar` لا حشواً متفرقاً.
 - وصف RSS مهرّب (`&lt;p&gt;`): فك الكيانات قبل إزالة الوسوم ثم بعدها. `NewsSources.clean`.
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
-- توقيع الإصدار: استعمل `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
+- توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
 - مراحل التصدير: 4 دون نشر، 6 معه (`ExportManager.publishStages`: تأكيد الصور بـ HEAD على غلاف الأول والأخير ثم النشر)؛ `retryPublish` يكمل المتوقف.
 - النشر المباشر يمر عبر XML نفسه (`XmlImport.parse`) فمسار التصدير والملف اليدوي واحد؛ روابط «اقرأ أيضاً» لمقالات الدفعة تُحذف لأن بلوجر يولّد الرابط؛ الـ API لا يضبط permalink ولا metaDescription.
 - لا جسر Apps Script ولا نشر بالبريد: لا خدمة Blogger في Apps Script، والبريد بلا تصنيفات/رابط راجع/جدولة. الجدولة = مسودة ثم `publish?publishDate`.
-- فك تشفير المفتاح يحصل مرة واحدة ويُخزَّن في الذاكرة (`SecretStore.cache`)؛ كان يُنفَّذ 4 مرات/ث على الخيط الرئيسي فيعلّق التنقل.
 - قوائم Room تقرأ `ArticleRow` (بلا JSON)؛ الجودة عمود `quality`.
 
 ## Open issues
+- المؤقت: WorkManager دوري (ساعة كحد أدنى) قد يتأخر مع Doze؛ العامل ≤10 دقائق فتُستأنف المهمة المقطوعة في الدورة التالية. لم يُجرَّب على جهاز.
 - لم يُجرَّب فعلياً: نشر حقيقي أو تفويض جوجل (مُختبَر بخادم وهمي)، وسلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
-- لم يُجرَّب: توليد/تصدير موقع غير الرياضة بمزودات حقيقية؛ سلاسة التنقل على جهاز فعلي.
-- لم يُشغَّل على جهاز: الخدمة الأمامية، Keystore، الأنيميشن؛ ولم تُجرَّب مزودات حقيقية ولا ESPN ولا رفع GitHub (خادم وهمي فقط).
+- لم يُجرَّب على جهاز: الخدمة الأمامية، Keystore، الأنيميشن، مزودات حقيقية، ESPN.
