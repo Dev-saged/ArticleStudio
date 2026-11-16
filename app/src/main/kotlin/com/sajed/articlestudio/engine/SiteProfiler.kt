@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -71,10 +72,10 @@ internal object ProfileLogic {
 
     fun parseFeed(txt: String): BlogSnapshot? = try {
         val feed = json.parseToJsonElement(txt).jsonObject["feed"]?.jsonObject ?: return null
-        fun t(o: JsonObject?, k: String) = o?.get(k)?.jsonObject?.get("\$t")?.jsonPrimitive?.contentOrNull.orEmpty().trim()
+        fun t(o: JsonObject?, k: String) = ((o?.get(k) as? JsonObject)?.get("\$t") as? JsonPrimitive)?.contentOrNull.orEmpty().trim()
         val titles = (feed["entry"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let { e -> t(e, "title").ifEmpty { null } } }
-        val cats = (feed["category"] as? JsonArray).orEmpty().mapNotNull { it.jsonObject["term"]?.jsonPrimitive?.contentOrNull?.trim()?.ifEmpty { null } }
-        val author = (feed["author"] as? JsonArray)?.firstOrNull()?.jsonObject?.let { t(it, "name") }.orEmpty()
+        val cats = (feed["category"] as? JsonArray).orEmpty().mapNotNull { ((it as? JsonObject)?.get("term") as? JsonPrimitive)?.contentOrNull?.trim()?.ifEmpty { null } }
+        val author = ((feed["author"] as? JsonArray)?.firstOrNull() as? JsonObject)?.let { t(it, "name") }.orEmpty()
         BlogSnapshot(t(feed, "title"), t(feed, "subtitle"), author, cats, titles).takeIf { it.title.isNotEmpty() || it.titles.isNotEmpty() }
     } catch (e: Exception) { null }
 
@@ -107,8 +108,8 @@ internal object ProfileLogic {
         val clean = txt.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.IGNORE_CASE), "")
         val body = clean.substringAfter('{', "").let { if (it.isEmpty()) return null else "{" + it }.substringBeforeLast('}', "").let { if (it.isEmpty()) return null else "$it}" }
         val o = try { json.parseToJsonElement(body).jsonObject } catch (e: Exception) { return null }
-        fun str(k: String) = o[k]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-        fun list(k: String, max: Int) = (o[k] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull?.trim()?.take(30)?.ifEmpty { null } }?.distinct()?.take(max).orEmpty()
+        fun str(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+        fun list(k: String, max: Int) = (o[k] as? JsonArray)?.mapNotNull { e -> (e as? JsonPrimitive ?: (e as? JsonObject)?.values?.firstOrNull() as? JsonPrimitive)?.contentOrNull?.trim()?.take(30)?.ifEmpty { null } }?.distinct()?.take(max).orEmpty()
         val niche = str("niche").takeIf { id -> Niches.all.any { it.id == id } } ?: pickNiche(s)
         val n = Niches.of(niche)
         val kws = list("keywords", 10).ifEmpty { return null }
