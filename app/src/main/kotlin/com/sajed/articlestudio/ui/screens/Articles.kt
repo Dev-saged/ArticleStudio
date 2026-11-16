@@ -15,6 +15,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,7 +107,7 @@ class ArticlesViewModel @Inject constructor(
     fun regenerate(id: Long) { runner.regenerate(id); GenerationService.start(ctx) }
 }
 
-private fun statusLabel(s: String) = when (s) { "ready" -> "جاهزة"; "failed" -> "فاشلة"; "exported" -> "مُصدَّرة"; else -> s }
+private fun statusLabel(s: String) = when (s) { "ready" -> "جاهزة"; "failed" -> "فاشلة"; "duplicate" -> "مكررة مستثناة"; "exported" -> "مُصدَّرة"; else -> s }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,24 +135,26 @@ fun ArticlesScreen(vm: ArticlesViewModel = hiltViewModel()) {
                 AppChip("الكل", filter == null, { filter = null })
                 AppChip("جاهزة", filter == "ready", { filter = "ready" })
                 AppChip("فاشلة", filter == "failed", { filter = "failed" })
+                if (all.any { it.status == "duplicate" }) AppChip("مكررة", filter == "duplicate", { filter = "duplicate" })
                 AppChip("مُصدَّرة", filter == "exported", { filter = "exported" })
             }
         }
         if (rows != null && shown.isEmpty()) item("empty") { EmptyState("لا مقالات هنا", "ابدأ من تبويب التوليد؛ تُحفظ كل مقالة فور اكتمالها.") }
         items(shown, key = { it.id }) { a ->
-            Panel(Modifier.fillMaxWidth().clickable(enabled = a.status != "failed") { vm.openEdit(a.id) }) {
+            Panel(Modifier.fillMaxWidth().clickable(enabled = a.status == "ready" || a.status == "exported") { vm.openEdit(a.id) }) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(a.title, style = MaterialTheme.typography.bodyLarge, color = c.text)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val tone = when { a.status == "failed" -> c.red; a.quality >= 80 -> c.ok; a.quality >= 60 -> c.goldText; else -> c.muted }
+                        val tone = when { a.status == "failed" -> c.red; a.status == "duplicate" -> c.goldText; a.quality >= 80 -> c.ok; a.quality >= 60 -> c.goldText; else -> c.muted }
                         Text(
-                            if (a.status == "failed") a.error.ifBlank { "فشل" } else (if (a.remote) "منشور على بلوجر · " else "") + "${statusLabel(a.status)} · ${a.words.toString().ltr()} كلمة · ${a.quality.toString().ltr()}/100 · ${a.provider}",
+                            if (a.status == "failed") a.error.ifBlank { "فشل" } else if (a.status == "duplicate") "مكرر مستثنى · يشبه «${a.error}»" else (if (a.remote) "منشور على بلوجر · " else "") + "${statusLabel(a.status)} · ${a.words.toString().ltr()} كلمة · ${a.quality.toString().ltr()}/100 · ${a.provider}",
                             style = MaterialTheme.typography.bodySmall, color = tone, modifier = Modifier.weight(1f),
                         )
-                        if (a.status != "exported") IconBtn(Icons.Refresh, "إعادة توليد", { vm.regenerate(a.id) })
+                        if (a.status == "duplicate") TextButton({ vm.regenerate(a.id) }) { Text("ولّد رغم التكرار", color = c.goldText) }
+                        else if (a.status != "exported") IconBtn(Icons.Refresh, "إعادة توليد", { vm.regenerate(a.id) })
                         IconBtn(Icons.Trash, "حذف", { confirmDelete = a.id })
                     }
-                    if (a.status != "failed" && a.error.isNotBlank()) Text("تنبيه: ${a.error}", style = MaterialTheme.typography.labelMedium, color = c.goldText)
+                    if (a.status == "ready" && a.error.isNotBlank()) Text("تنبيه: ${a.error}", style = MaterialTheme.typography.labelMedium, color = c.goldText)
                 }
             }
         }

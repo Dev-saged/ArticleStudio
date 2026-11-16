@@ -40,6 +40,7 @@ data class HomeUiState(
     val resumable: Boolean = false,
     val done: Int = 0,
     val failed: Int = 0,
+    val dup: Int = 0,
     val jobTotal: Int = 0,
     val nodes: List<NodeUi> = emptyList(),
     val ballAt: Int = 0,
@@ -55,8 +56,8 @@ data class HomeUiState(
     val siteCount: Int = 1,
 ) {
     val shownTotal get() = if (jobTotal > 0) jobTotal else total
-    val etaMin get() = ((shownTotal - done - failed).coerceAtLeast(0) * 2)
-    val progress get() = if (shownTotal == 0) 0f else (done + failed).toFloat() / shownTotal
+    val etaMin get() = ((shownTotal - done - failed - dup).coerceAtLeast(0) * 2)
+    val progress get() = if (shownTotal == 0) 0f else (done + failed + dup).toFloat() / shownTotal
 }
 
 @HiltViewModel
@@ -113,7 +114,7 @@ class HomeViewModel @Inject constructor(
         val (inp, notice) = inputs.value
         _ui.value = HomeUiState(
             total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
-            done = job.done, failed = job.failed, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
+            done = job.done, failed = job.failed, dup = job.dup, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
             pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
             avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count(sites.active().url), siteName = sites.active().name, siteNiche = sites.active().niche, siteCount = sites.sites.value.size,
         )

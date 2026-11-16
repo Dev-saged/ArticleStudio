@@ -108,7 +108,9 @@ object SvgDraw {
                             })
                             val st = a("stroke")
                             if (st != null && st != "none") canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                style = Paint.Style.STROKE; this.color = fillColor(st); this.alpha = (this.alpha * alpha).toInt()
+                                style = Paint.Style.STROKE
+                                if (st.startsWith("url(")) shader = LinearGradient(bounds.left, bounds.top, bounds.right, bounds.bottom, GRAD_A, GRAD_B, Shader.TileMode.CLAMP) else this.color = fillColor(st)
+                                this.alpha = (this.alpha * alpha).toInt()
                                 strokeWidth = a("stroke-width")?.toFloatOrNull() ?: 1f
                                 strokeCap = when (a("stroke-linecap")) { "round" -> Paint.Cap.ROUND; "square" -> Paint.Cap.SQUARE; else -> Paint.Cap.BUTT }
                                 strokeJoin = if (a("stroke-linejoin") == "round") Paint.Join.ROUND else Paint.Join.MITER

@@ -44,6 +44,8 @@ import com.sajed.articlestudio.data.AppDb
 import com.sajed.articlestudio.engine.BlogIndex
 import com.sajed.articlestudio.engine.Niches
 import com.sajed.articlestudio.engine.SiteConfig
+import com.sajed.articlestudio.engine.SiteProfile
+import com.sajed.articlestudio.engine.SiteProfiler
 import com.sajed.articlestudio.engine.SiteRules
 import com.sajed.articlestudio.engine.SiteStore
 import com.sajed.articlestudio.schema.Field
@@ -76,11 +78,18 @@ object SiteForms {
     private val lengthLabels = linkedMapOf("short" to "قصير", "medium" to "متوسط", "long" to "طويل")
     private val nicheLabels = Niches.all.associate { it.id to it.label }
 
-    val basics = ModuleSchema(
-        "site-basics", "الأساسيات",
+    val identity = ModuleSchema(
+        "site-identity", "الموقع",
         listOf(
-            Field("name", "اسم الموقع", required = true),
-            Field("url", "رابط الموقع", required = true, hint = "مثال: https://example.blogspot.com"),
+            Field("url", "رابط المدونة", required = true, hint = "مثال: https://example.blogspot.com"),
+            Field("name", "اسم الموقع", hint = "يُستنتج تلقائياً من المدونة إن تُرك فارغاً"),
+        ),
+        emptyList(),
+    )
+    val identityUrl = ModuleSchema("site-url", "الموقع", identity.fields.take(1), emptyList())
+    val basics = ModuleSchema(
+        "site-basics", "المجال والكاتب",
+        listOf(
             Field("niche", "المجال", FieldType.Choice, options = nicheLabels.values.toList()),
             Field("topic", "وصف المجال (اختياري)", hint = "يظهر للمحرك، مثل: أخبار الذكاء الاصطناعي"),
             Field("author", "اسم الكاتب في المدونة"),
@@ -100,7 +109,7 @@ object SiteForms {
         emptyList(),
     )
     val publish = ModuleSchema(
-        "site-publish", "المصادر والنشر",
+        "site-publish", "المصادر والمحتوى",
         listOf(
             Field("feeds", "مصادر RSS إضافية", lines = 3, hint = "رابط في كل سطر"),
             Field("labels", "التصنيفات", hint = "افصل بينها بفاصلة؛ تُملأ من المجال إن تُركت فارغة"),
@@ -108,18 +117,13 @@ object SiteForms {
             Field("schedule", "ساعات بين المقالات المجدولة", FieldType.Number, min = 0, max = 72, hint = "0 = حسب إعداد التصدير العام"),
             Field("repo", "مستودع الصور (اختياري)", hint = "owner/repo، وإلا يُستخدم المستودع العام"),
             Field("branch", "فرع الصور (اختياري)"),
-            Field("autoExport", "تصدير ورفع ونشر تلقائي بعد انتهاء كل توليد", FieldType.Toggle),
-            Field("autoEvery", "توليد تلقائي كل كم ساعة", FieldType.Number, min = 0, max = 24, hint = "0 = متوقف. يعمل في الخلفية ويكمل المسار حتى النشر"),
-            Field("autoCount", "عدد المقالات في كل دورة", FieldType.Number, min = 1, max = 10),
-            Field("autoFrom", "تبدأ الدورات من الساعة", FieldType.Number, min = 0, max = 23, hint = "بتوقيت الجهاز"),
-            Field("autoTo", "وتتوقف عند الساعة", FieldType.Number, min = 1, max = 24, hint = "0 إلى 24 = طوال اليوم"),
             Field("faq", "إضافة قسم الأسئلة الشائعة", FieldType.Toggle),
             Field("tables", "السماح بالجداول", FieldType.Toggle),
             Field("sources", "ذكر المصادر في نهاية المقال", FieldType.Toggle),
         ),
         emptyList(),
     )
-    val steps = listOf(basics, rules, publish)
+    val details = listOf(basics, rules, publish)
 
     fun values(s: SiteConfig): Map<String, String> = mapOf(
         "name" to s.name, "url" to s.url, "niche" to nicheLabels.getValue(s.niche.takeIf { it in nicheLabels } ?: "general"),
@@ -166,8 +170,23 @@ object SiteForms {
 
 @HiltViewModel
 class SitesViewModel @Inject constructor(
-    val store: SiteStore, private val db: AppDb, private val blog: BlogIndex,
+    val store: SiteStore, private val db: AppDb, private val blog: BlogIndex, private val profiler: SiteProfiler,
 ) : ViewModel() {
+    sealed interface Analysis { object Idle : Analysis; object Running : Analysis; class Done(val profile: SiteProfile) : Analysis; class Failed(val msg: String) : Analysis }
+    private val _analysis = kotlinx.coroutines.flow.MutableStateFlow<Analysis>(Analysis.Idle)
+    val analysis: StateFlow<Analysis> = _analysis
+    fun resetAnalysis() { _analysis.value = Analysis.Idle }
+
+    fun analyze(url: String) {
+        if (_analysis.value is Analysis.Running) return
+        _analysis.value = Analysis.Running
+        viewModelScope.launch {
+            _analysis.value = try { Analysis.Done(profiler.analyze(url)) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { Analysis.Failed(e.message ?: "تعذّر التحليل") }
+        }
+    }
+
     val stats: StateFlow<Map<String, SiteStats>> = combine(store.sites, db.articles().observeRows()) { sites, rows ->
         sites.associate { s ->
             val mine = rows.filter { it.siteId == s.id }
@@ -236,7 +255,7 @@ fun SitesScreen(onGenerate: () -> Unit, vm: SitesViewModel = hiltViewModel()) {
     }
 
     publishing?.let { PublishSheet(it, onClose = { publishing = null }) }
-    editing?.let { s -> SiteEditor(s, isNew = s.id.isEmpty(), onClose = { editing = null }, onSave = { built -> val isNew = s.id.isEmpty(); val saved = vm.save(built, isNew); editing = null; if (isNew) publishing = saved.id }) }
+    editing?.let { s -> SiteEditor(s, isNew = s.id.isEmpty(), vm = vm, onClose = { editing = null }, onSave = { built -> val isNew = s.id.isEmpty(); val saved = vm.save(built, isNew); editing = null; if (isNew) publishing = saved.id }) }
     deleting?.let { s ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -309,49 +328,120 @@ private fun Mini(label: String, v: Int, modifier: Modifier) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val EVERY = listOf(0 to "متوقف", 1 to "كل ساعة", 3 to "كل 3 ساعات", 6 to "كل 6 ساعات", 12 to "كل 12 ساعة", 24 to "يومياً")
+private val PER_RUN = listOf(1, 2, 3, 5)
+private val WINDOWS = listOf((0 to 24) to "طوال اليوم", (8 to 22) to "النهار", (16 to 24) to "المساء", (22 to 6) to "الليل")
+
 @Composable
-private fun SiteEditor(site: SiteConfig, isNew: Boolean, onClose: () -> Unit, onSave: (SiteConfig) -> Unit) {
+private fun SectionTitle(text: String, hint: String = "") {
     val c = AppTheme.colors
-    var step by remember { mutableStateOf(0) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(text, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), color = c.text)
+        if (hint.isNotEmpty()) Text(hint, style = MaterialTheme.typography.bodySmall, color = c.muted)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun SiteEditor(site: SiteConfig, isNew: Boolean, vm: SitesViewModel, onClose: () -> Unit, onSave: (SiteConfig) -> Unit) {
+    val c = AppTheme.colors
     var values by remember { mutableStateOf(SiteForms.values(site)) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    val schema = SiteForms.steps[step]
+    var analyzed by remember { mutableStateOf(!isNew) }
+    var details by remember { mutableStateOf(false) }
+    val analysis by vm.analysis.collectAsStateWithLifecycle()
+    androidx.compose.runtime.DisposableEffect(Unit) { vm.resetAnalysis(); onDispose { vm.resetAnalysis() } }
+    androidx.compose.runtime.LaunchedEffect(analysis) {
+        (analysis as? SitesViewModel.Analysis.Done)?.let { d ->
+            val merged = d.profile.applyTo(SiteForms.build(site, values))
+            val nv = SiteForms.values(merged)
+            values = nv + mapOf("url" to values["url"].orEmpty(), "autoExport" to values["autoExport"].orEmpty(), "autoEvery" to values["autoEvery"].orEmpty(),
+                "autoCount" to values["autoCount"].orEmpty(), "autoFrom" to values["autoFrom"].orEmpty(), "autoTo" to values["autoTo"].orEmpty(), "repo" to values["repo"].orEmpty(), "branch" to values["branch"].orEmpty())
+            analyzed = true; errors = emptyMap()
+        }
+    }
+    val built = SiteForms.build(site, values)
 
-    fun check(): Boolean {
-        val e = LinkedHashMap(SchemaRules.validate(schema, values))
-        if (step == 0) {
-            val v = SiteRules.validate(SiteForms.build(site, values))
-            v["name"]?.let { e["name"] = it }; v["url"]?.let { e["url"] = it }
-        }
-        if (step == 2) {
-            val v = SiteRules.validate(SiteForms.build(site, values))
-            v["repo"]?.let { e["repo"] = it }; v["feeds"]?.let { e["feeds"] = it }
-        }
+    fun set(k: String, v: String) { values = values + (k to v); if (errors.containsKey(k)) errors = errors - k }
+
+    fun validate(): Boolean {
+        val e = LinkedHashMap<String, String>()
+        SiteRules.validate(built.let { if (it.name.isBlank()) it.copy(name = "موقع") else it }).forEach { (k, v) -> if (k in setOf("url", "repo", "feeds")) e[k] = v }
+        if (analyzed && built.name.isBlank()) e["name"] = "اسم الموقع قصير"
         errors = e
         return e.isEmpty()
     }
 
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.bg) {
-        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(if (isNew) "موقع جديد" else "تعديل «${site.name}»", style = MaterialTheme.typography.titleLarge, color = c.text)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SiteForms.steps.forEachIndexed { i, st ->
-                    Box(Modifier.weight(1f).height(4.dp).background(if (i <= step) c.gold else c.line, RoundedCornerShape(3.dp)))
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(if (isNew) "موقع جديد" else "إعدادات «${site.name}»", style = MaterialTheme.typography.titleLarge, color = c.text)
+
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SectionTitle("1 · المدونة", if (analyzed) "تم استنتاج الهوية من المدونة. أعد التحليل إن تغيّر محتواها." else "أدخل الرابط فقط، والباقي يُستنتج تلقائياً من محتوى مدونتك.")
+                    SchemaForm(if (isNew && !analyzed) SiteForms.identityUrl else SiteForms.identity, values, errors) { k, v -> set(k, v) }
+                    when (val a = analysis) {
+                        is SitesViewModel.Analysis.Running -> Text("جارٍ قراءة المدونة وتحليلها…", style = MaterialTheme.typography.bodyMedium, color = c.goldText)
+                        is SitesViewModel.Analysis.Failed -> Text(a.msg, style = MaterialTheme.typography.bodyMedium, color = c.red)
+                        is SitesViewModel.Analysis.Done -> Text(
+                            (if (a.profile.usedAi) "تم التحليل بالذكاء الاصطناعي" else "تم التحليل من بيانات المدونة (فعّل مزوداً لدقة أعلى)") + " · ${a.profile.posts.toString().ltr()} مقالاً قُرئ",
+                            style = MaterialTheme.typography.bodyMedium, color = c.goldText,
+                        )
+                        else -> {}
+                    }
+                    PrimaryButton(if (analyzed) "إعادة التحليل والتعبئة التلقائية" else "حلّل مدونتي وعبّئ كل شيء تلقائياً", Icons.Refresh, {
+                        val u = built.url.trim()
+                        if (SiteRules.validate(built.copy(name = "موقع"))["url"] != null) errors = mapOf("url" to "رابط غير صالح، مثال: https://example.blogspot.com") else vm.analyze(u)
+                    }, enabled = analysis !is SitesViewModel.Analysis.Running)
+                    if (isNew && !analyzed) TextButton({ analyzed = true; if (values["name"].isNullOrBlank()) set("name", "") }) { Text("إضافة يدوية بدون تحليل", color = c.muted) }
                 }
             }
-            Text("${(step + 1).toString().ltr()} / ${SiteForms.steps.size.toString().ltr()}  ${schema.title}", style = MaterialTheme.typography.labelLarge, color = c.goldText)
-            SchemaForm(schema, values, errors) { k, v ->
-                values = if (k == "niche" && isNew) SiteForms.onNicheChanged(values, v) else values + (k to v)
-                if (errors.containsKey(k)) errors = errors - k
+
+            if (analyzed) {
+                Panel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SectionTitle("2 · هوية المحتوى", "تُستخدم تلقائياً في كل توليد")
+                        Summary("المجال", built.topicLabel); Summary("النبرة", values["tone"].orEmpty()); Summary("طول المقال", values["length"].orEmpty())
+                        Summary("الجمهور", built.audience.ifBlank { "—" }); Summary("الكلمات المفتاحية", built.keywords.size.toString().ltr()); Summary("التصنيفات", built.labels.size.toString().ltr())
+                        TextButton({ details = !details }) { Text(if (details) "إخفاء التفاصيل" else "تعديل التفاصيل يدوياً", color = c.goldText) }
+                        if (details) SiteForms.details.forEach { sc ->
+                            Text(sc.title, style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                            SchemaForm(sc, values, errors) { k, v -> set(k, if (k == "niche" && isNew) { values = SiteForms.onNicheChanged(values, v); v } else v) }
+                        }
+                    }
+                }
+
+                Panel(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SectionTitle("3 · التوليد والنشر التلقائي", "المؤقت يولّد في الخلفية ثم يصدّر ويرفع الصور وينشر بلا تدخل")
+                        Text("التكرار", style = MaterialTheme.typography.labelLarge, color = c.muted)
+                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EVERY.forEach { (h, l) -> AppChip(l, built.autoEvery == h, { set("autoEvery", h.toString()) }) }
+                        }
+                        if (built.autoEvery > 0) {
+                            Text("مقالات كل دورة", style = MaterialTheme.typography.labelLarge, color = c.muted)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { PER_RUN.forEach { n -> AppChip(n.toString().ltr(), built.autoCount == n, { set("autoCount", n.toString()) }) } }
+                            Text("ساعات العمل", style = MaterialTheme.typography.labelLarge, color = c.muted)
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                WINDOWS.forEach { (w, l) -> AppChip(l, built.autoFrom == w.first && built.autoTo == w.second, { set("autoFrom", w.first.toString()); set("autoTo", w.second.toString()) }) }
+                            }
+                        }
+                        SchemaForm(ModuleSchema("auto", "", listOf(Field("autoExport", "بعد كل توليد: تصدير ورفع صور ونشر تلقائي", FieldType.Toggle)), emptyList()), values, errors) { k, v -> set(k, v) }
+                    }
+                }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (step > 0) AppChip("السابق", false, { step -= 1; errors = emptyMap() })
-                Box(Modifier.weight(1f))
-                if (step < SiteForms.steps.lastIndex) PrimaryButton("التالي", Icons.Next, { if (check()) step += 1 }, Modifier.weight(2f))
-                else PrimaryButton(if (isNew) "إضافة الموقع" else "حفظ", Icons.Check, { if (check()) onSave(SiteForms.build(site, values)) }, Modifier.weight(2f))
-            }
+
+            if (analyzed) PrimaryButton(if (isNew) "إضافة الموقع" else "حفظ", Icons.Check, { if (validate()) onSave(built) })
             Box(Modifier.height(12.dp))
         }
+    }
+}
+
+@Composable
+private fun Summary(label: String, value: String) {
+    val c = AppTheme.colors
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = c.muted, modifier = Modifier.weight(0.4f))
+        Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = c.text, modifier = Modifier.weight(0.6f), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

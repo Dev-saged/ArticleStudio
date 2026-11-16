@@ -114,7 +114,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
             Row(Modifier.stagger(2), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Stat("مقالات جاهزة", "${s.done}/${s.shownTotal}".ltr(), Modifier.weight(1f))
                 Stat("متوسط الكلمات", if (s.avgWords == 0) "—" else s.avgWords.toString().ltr(), Modifier.weight(1f))
-                Stat(if (s.failed > 0) "فاشلة" else "المتبقي", if (s.failed > 0) s.failed.toString().ltr() else "${s.etaMin.toString().ltr()}د", Modifier.weight(1f))
+                Stat(if (s.failed > 0) "فاشلة" else if (s.dup > 0) "مكررة مستثناة" else "المتبقي", if (s.failed > 0) s.failed.toString().ltr() else if (s.dup > 0) s.dup.toString().ltr() else "${s.etaMin.toString().ltr()}د", Modifier.weight(1f))
             }
         }
         item("bar") {
@@ -194,7 +194,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                 val l = s.logs[i]
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(l.t.ltr(), style = MaterialTheme.typography.bodySmall, color = c.muted)
-                    Text(l.m, style = MaterialTheme.typography.bodySmall, color = when (l.k) { "e" -> c.red; "o" -> c.ok; "w" -> c.goldText; else -> c.text }, modifier = Modifier.weight(1f))
+                    Text(l.m, style = MaterialTheme.typography.bodySmall, color = when (l.k) { "e" -> c.red; "o" -> c.ok; "w", "i" -> c.goldText; else -> c.text }, modifier = Modifier.weight(1f))
                 }
             }
             item { Box(Modifier.size(12.dp)) }

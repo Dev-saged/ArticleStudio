@@ -64,7 +64,7 @@ private val TABS = listOf(
     Tab("sites", "المواقع", Icons.Sites),
     Tab("articles", "المقالات", Icons.Articles),
     Tab("providers", "المزودون", Icons.Providers),
-    Tab("export", "التصدير", Icons.Export),
+    Tab("export", "السجل", Icons.Export),
 )
 
 private const val TEST = "test"

@@ -11,10 +11,10 @@
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
 - المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
-- لوحة المواقع ومعالج الإضافة (3 خطوات من المخططات) → `ui/screens/Sites.kt` → `SiteForms`، `SitesScreen`
+- محرر الموقع (ورقة واحدة + زر «تعبئة تلقائية») → `ui/screens/Sites.kt` → `SiteEditor`؛ التحليل → `engine/SiteProfiler.kt` (`ProfileLogic` نقية)
 - Room v4 + ترحيلات (site_id، quality، remote_url) → `data/Db.kt`، `data/Entities.kt` → `Migrations`
 - المفاتيح/المزودون → `data/{KeyBackup,Providers,SecretStore,Stores}.kt`؛ التوليد → `engine/{Generator,JobRunner}.kt`؛ GitHub → `engine/GitHubClient.kt`
-- فهرس المدونة → `engine/BlogIndex.kt`؛ الأخبار → `engine/NewsSources.kt`
+- فهرس المدونة → `engine/BlogIndex.kt`؛ الأخبار → `engine/NewsSources.kt`؛ المكرر: حالة `duplicate` (مستثناة لا فاشلة) في `JobRunner`
 - XML بلوجر، التصدير، التسمية، الخدمة الأمامية → `engine/{XmlBuilder,ExportManager,ExportNaming,GenerationService}.kt`
 
 ## Decisions
@@ -24,11 +24,12 @@
 - رقم البناء = `GITHUB_RUN_NUMBER`؛ التاج `vX.Y.Z-bN`.
 
 ## Solved bugs (never reintroduce)
-- تعليق التنقل (المزودون/الرئيسية): فك Keystore في حلقة 250ms على الرئيسي + تحميل JSON كل المقالات. لا تعد `observeAll` ولا فك التشفير خارج `SecretStore.cache`.
+- تعليق التنقل: لا تعد `observeAll` ولا فك التشفير خارج `SecretStore.cache`.
 - `SchemaRules.sanitize` كان يقص المسافات أثناء الكتابة؛ في الحقول استعمل `trim = false`.
 - تداخل الواجهة مع أشرطة النظام (targetSdk 36 يفرض edge-to-edge): استعمل `EdgeBar` لا حشواً متفرقاً.
 - وصف RSS مهرّب (`&lt;p&gt;`): فك الكيانات قبل إزالة الوسوم ثم بعدها. `NewsSources.clean`.
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
+- 7 رموز (bulb، heart…) كانت تسقط لأن `stroke="url(#gf)"` لم يُدعم؛ `MotifTest` يغطي كل الرموز.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
 - مراحل التصدير: 4 دون نشر، 6 معه (`ExportManager.publishStages`: تأكيد الصور بـ HEAD على غلاف الأول والأخير ثم النشر)؛ `retryPublish` يكمل المتوقف.
@@ -38,5 +39,5 @@
 
 ## Open issues
 - المؤقت: WorkManager دوري (ساعة كحد أدنى) قد يتأخر مع Doze؛ العامل ≤10 دقائق فتُستأنف المهمة المقطوعة في الدورة التالية. لم يُجرَّب على جهاز.
-- لم يُجرَّب فعلياً: نشر حقيقي أو تفويض جوجل (مُختبَر بخادم وهمي)، وسلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
-- لم يُجرَّب على جهاز: الخدمة الأمامية، Keystore، الأنيميشن، مزودات حقيقية، ESPN.
+- لم يُجرَّب: سلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
+- لم يُجرَّب على جهاز: الخدمة الأمامية، Keystore، مزودات حقيقية، ESPN.

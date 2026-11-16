@@ -92,7 +92,7 @@ ${words(30)}
         val t0 = System.currentTimeMillis()
         while (System.currentTimeMillis() - t0 < 40_000) {
             val s = runner.state.value
-            if (s.jobId > 0 && !s.running && s.done + s.failed >= target) return
+            if (s.jobId > 0 && !s.running && s.done + s.failed + s.dup >= target) return
             Thread.sleep(100)
         }
         fail("لم تكتمل المهمة: ${runner.state.value}")
@@ -125,5 +125,16 @@ ${words(30)}
         assertEquals(2, metaCalls)
         assertEquals("done", db.jobs().latest()!!.state)
         assertEquals(id, db.jobs().latest()!!.id)
+    }
+
+    @Test fun duplicateTopicIsExcludedWithoutFailureOrModelCall() = runBlocking {
+        db.articles().upsert(com.sajed.articlestudio.data.ArticleEntity(jobId = 0, idx = 0, title = "موضوع أول عن الكلاسيكو الكبير", slug = "old", status = "exported", updatedAt = 1, siteId = "default"))
+        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل")
+        await(2)
+        val s = runner.state.value
+        assertEquals(1, s.dup); assertEquals(0, s.failed); assertEquals(1, s.done)
+        assertEquals(1, metaCalls)
+        assertEquals(1, db.articles().countByStatus("duplicate")); assertEquals(0, db.articles().countByStatus("failed"))
+        assertEquals(1, db.articles().readyFor("default").size)
     }
 }
