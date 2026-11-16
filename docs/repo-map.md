@@ -5,7 +5,7 @@
 ## Quick index (ميزة → ملف → ابحث بـ)
 - الهوية والألوان → `BrandConfig.kt` → `BrandConfig`
 - الثيم، المكونات، الحركة، الأيقونات → `ui/theme/*`، `ui/Components.kt`، `ui/Motion.kt`، `ui/icons/Icons.kt`
-- المخططات → `schema/*`؛ الصور → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ SEO → `XmlBuilder.bodyHtml`؛ الشاشات → `ui/screens/*`
+- المخططات → `schema/*`؛ الصور → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ الشاشات → `ui/screens/*`
 - الرئيسية → `ui/home/*` → `HomeViewModel`، `PitchBoard`
 - التنقل، `EdgeBar` → `ui/nav/AppNav.kt`
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
@@ -27,7 +27,6 @@
 - تعليق التنقل: لا تعد `observeAll` ولا فك التشفير خارج `SecretStore.cache`.
 - `SchemaRules.sanitize` كان يقص المسافات أثناء الكتابة؛ في الحقول استعمل `trim = false`.
 - تداخل الواجهة مع الأشرطة: استعمل `EdgeBar`.
-- وصف RSS مهرّب (`&lt;p&gt;`): فك الكيانات قبل إزالة الوسوم ثم بعدها. `NewsSources.clean`.
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
 - أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
 - 7 رموز (bulb، heart…) كانت تسقط لأن `stroke="url(#gf)"` لم يُدعم؛ `MotifTest` يغطي كل الرموز.
@@ -36,7 +35,6 @@
 - مراحل التصدير: 4 دون نشر، 6 معه (`ExportManager.publishStages`: تأكيد الصور بـ HEAD على غلاف الأول والأخير ثم النشر)؛ `retryPublish` يكمل المتوقف.
 - النشر المباشر يمر عبر XML نفسه (`XmlImport.parse`) فمسار التصدير والملف اليدوي واحد؛ روابط «اقرأ أيضاً» لمقالات الدفعة تُحذف لأن بلوجر يولّد الرابط؛ الـ API لا يضبط permalink ولا metaDescription.
 - لا جسر Apps Script ولا نشر بالبريد: لا خدمة Blogger في Apps Script، والبريد بلا تصنيفات/رابط راجع/جدولة. الجدولة = مسودة ثم `publish?publishDate`.
-- قوائم Room تقرأ `ArticleRow` (بلا JSON)؛ الجودة عمود `quality`.
 
 ## Open issues
 - المؤقت: WorkManager دوري (ساعة كحد أدنى) قد يتأخر مع Doze؛ العامل ≤10 دقائق فتُستأنف المهمة المقطوعة في الدورة التالية. لم يُجرَّب على جهاز.
