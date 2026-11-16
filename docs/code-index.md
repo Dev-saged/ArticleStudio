@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 95 ملفاً · 8717 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 358 · Export.kt 317 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215 · ExportManager.kt 211
+> 98 ملفاً · 9194 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 292 · ProviderEngine.kt 269 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215
 
 ### ./
 - CLAUDE.md (44)
@@ -53,8 +53,8 @@
 - Generator.kt (238): PlanMode, Generator
 - GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
-- ImageRenderer.kt (165): RenderedImages, ImageRenderer
-- JobRunner.kt (159): JobUi, JobRunner
+- ImageRenderer.kt (292): RenderedImages, ImageRenderer
+- JobRunner.kt (171): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
 - ProviderEngine.kt (269): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, Call.await, ProviderEngine
@@ -63,8 +63,9 @@
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
 - Site.kt (180): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- SiteProfiler.kt (129): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
 - StudioData.kt (19): StudioData
-- SvgDraw.kt (129): hsl, SvgDraw
+- SvgDraw.kt (131): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
 - Updater.kt (140): UpdateInfo, UpdatePhase, UpdateUi, Updater
 - XmlBuilder.kt (110): XmlBuilder
@@ -79,18 +80,18 @@
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
 - HomeScreen.kt (215): HomeScreen
-- HomeViewModel.kt (137): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
+- HomeViewModel.kt (138): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
 - Icons.kt (55): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
 - AppNav.kt (137): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
-- Articles.kt (200): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
-- Export.kt (317): ExportViewModel, ExportScreen, pubModeLabel
+- Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
+- Export.kt (326): ExportViewModel, ExportScreen, pubModeLabel
 - Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
-- Sites.kt (358): SiteStats, SiteForms, SitesViewModel, SitesScreen
+- Sites.kt (448): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -117,15 +118,17 @@
 - EngineTest.kt (83): EngineTest
 - Fixtures.kt (14): sampleArticle
 - GeneratorTest.kt (106): GeneratorTest
-- JobRunnerTest.kt (130): JobRunnerTest
+- JobRunnerTest.kt (141): JobRunnerTest
+- MotifTest.kt (22): MotifTest
 - ProviderHttpTest.kt (85): ProviderHttpTest
 - PublishTest.kt (112): PublishTest
-- RenderTest.kt (38): RenderTest
+- RenderTest.kt (58): RenderTest
+- SiteProfilerTest.kt (50): SiteProfilerTest
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### docs/
 - publishing.md (20)
-- repo-map.md (43)
+- repo-map.md (44)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
