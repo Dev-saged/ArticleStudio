@@ -41,7 +41,21 @@ class ChatOpts(
     val validate: ((String) -> Unit)? = null, val noWait: Boolean = false,
 )
 class ChatResult(val text: String, val provider: String, val model: String)
-class ProviderStat(@Volatile var ok: Int = 0, @Volatile var fail: Int = 0, @Volatile var last: String = "")
+class ProviderStat(@Volatile var ok: Int = 0, @Volatile var fail: Int = 0, @Volatile var last: String = "", @Volatile var hard: Boolean = false)
+
+/** ردّ المزود لم يجتز فحص المحتوى (JSON/جودة)؛ ليس عطلاً في المزود فلا يُحتسب إخفاقاً ظاهراً. */
+class ValidationFail(message: String) : Exception(message)
+
+/** رسالة عربية مفهومة بدل نص الخادم الخام. */
+internal fun friendlyApi(status: Int?, raw: String?): String = when (status) {
+    401, 403 -> "المفتاح مرفوض أو بلا صلاحية"
+    402 -> "الحساب يحتاج وسيلة دفع عند المزود"
+    404, 410 -> "النموذج لم يعد متاحاً، يُجرَّب غيره تلقائياً"
+    400, 413 -> "طلب غير مقبول لهذا النموذج"
+    429 -> "الحد مستهلك أو الخادم مزدحم مؤقتاً"
+    in 500..599 -> "خطأ مؤقت من خادم المزود"
+    else -> clamp(raw.orEmpty(), 70)
+}
 
 private val BAD = Regex("omni|\\bvl\\b|-vl|vision|lightning|thinking|guard|embed|image|tts|audio|live|ocr|moderation|robot|whisper|orpheus|playai|safeguard|lyria|veo|imagen|translate|rerank", RegexOption.IGNORE_CASE)
 private val PREF3 = Regex("gpt-oss-120b|llama-3\\.3-70b|qwen3?.{0,8}(235|72|32|30)b|qwen-3-235|glm|kimi|minimax|longcat|command-a|mistral-(large|medium)", RegexOption.IGNORE_CASE)
@@ -144,7 +158,7 @@ class ProviderEngine @Inject constructor(
                 "sambanova" -> by(good(ids(get("$base/models", emptyMap())))).take(3)
                 "nvidia" -> by(good(ids(get("$base/models", hd))).filter { !Regex("coder|code|safety|reward|parse|embed|mixtral|-\\d{1,2}b\\b|\\b\\d{1,2}b-|nano|bolt|guard|v0\\.", RegexOption.IGNORE_CASE).containsMatchIn(it) }).take(4)
                 "zai" -> runCatching { good(ids(get("$base/models", hd))).filter { it.contains("flash", true) }.take(2) }.getOrDefault(emptyList())
-                "longcat" -> listOf("LongCat-Flash-Chat")
+                "longcat" -> runCatching { good(ids(get("$base/models", hd))).take(3) }.getOrDefault(emptyList()).ifEmpty { listOf("LongCat-Flash-Chat") }
                 "llm7" -> by(good(ids(get("$base/models", emptyMap()))).filter { !Regex("code|pro|:").containsMatchIn(it) }).take(3)
                 "zen" -> by(good(ids(get("$base/models", emptyMap()))).filter { it.endsWith("-free") }).take(3)
                 else -> emptyList()
@@ -174,7 +188,7 @@ class ProviderEngine @Inject constructor(
         val key = store.key(s.id)
         val rq = Request.Builder().url(store.base(s.id).trimEnd('/') + "/chat/completions")
             .header("Content-Type", "application/json").apply {
-                if (key.isNotEmpty()) header("Authorization", "Bearer $key")
+                if (key.isNotEmpty()) header("Authorization", "Bearer $key") else if (s.id == "llm7") header("Authorization", "Bearer unused")
                 if (s.id == "openrouter") header("X-Title", "Article Studio")
             }.post(body.toRequestBody("application/json".toMediaType())).build()
         http.newBuilder().callTimeout(o.timeoutMs, TimeUnit.MILLISECONDS).readTimeout(o.timeoutMs, TimeUnit.MILLISECONDS).build().newCall(rq).await().use { r ->
@@ -211,17 +225,18 @@ class ProviderEngine @Inject constructor(
                     try {
                         bus.log("${p.name} ← ${m.substringAfterLast('/')}")
                         val text = callOne(p, m, messages, o)
-                        o.validate?.invoke(text)
+                        try { o.validate?.invoke(text) } catch (e: CancellationException) { throw e } catch (e: Exception) { throw ValidationFail(e.message ?: "رد غير صالح") }
                         stat(p.id).ok++; stat(p.id).last = ""; health.reward(k)
                         bus.setActive(null)
                         return ChatResult(text, p.name, m)
                     } catch (e: Exception) {
                         bus.setActive(null)
                         if (e is CancellationException) throw e
+                        if (e is ValidationFail) { lastErr = "رد غير صالح: " + clamp(e.message, 40); coolDown(k, 120_000); health.penal(k, now()); bus.log("${p.name}: رد غير صالح، التالي", "w"); continue }
                         val st = stat(p.id); st.fail++
                         val status = (e as? ApiException)?.status ?: -2
-                        val msg = if (e is InterruptedIOException) "انتهت المهلة" else (e.message ?: e.javaClass.simpleName)
-                        st.last = msg; lastErr = msg
+                        val msg = if (e is InterruptedIOException) "انتهت المهلة" else friendlyApi((e as? ApiException)?.status, e.message ?: e.javaClass.simpleName)
+                        st.last = msg; st.hard = status == 401 || status == 403; lastErr = msg
                         when {
                             status == 401 || status == 403 -> { coolDown("p|${p.id}", 3_600_000); bus.log("${p.name}: المفتاح مرفوض", "e"); break }
                             status == 429 || status == 402 -> { coolDown(k, ((e as ApiException).retry * 1000L).coerceIn(60_000, 600_000)); bus.log("${p.name}: الحد مستهلك، التالي", "w") }
@@ -254,14 +269,19 @@ class ProviderEngine @Inject constructor(
             resetCooldown(s.id)
             val ms = listModels(s)
             if (ms.isEmpty()) return "لا نماذج متاحة"
-            callOne(s, ms[0], listOf(ChatMessage("user", "اكتب جملة عربية واحدة عن كرة القدم.")), ChatOpts(max = 80, timeoutMs = 40_000))
-            stat(s.id).last = ""
-            "يعمل (${ms[0].substringAfterLast('/')}) ${"%.1f".format((now() - t0) / 1000.0)}ث"
+            var used = ms[0]; var err: Exception? = null
+            for (m in ms.take(3)) {
+                try { callOne(s, m, listOf(ChatMessage("user", "اكتب جملة عربية واحدة عن كرة القدم.")), ChatOpts(max = 80, timeoutMs = 40_000)); used = m; err = null; break }
+                catch (e: Exception) { if (e is CancellationException) throw e; err = e; if ((e as? ApiException)?.status in listOf(401, 403)) break }
+            }
+            err?.let { throw it }
+            stat(s.id).last = ""; stat(s.id).hard = false
+            "يعمل (${used.substringAfterLast('/')}) ${"%.1f".format((now() - t0) / 1000.0)}ث"
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             val st = (e as? ApiException)?.status
-            val m = when (st) { 401, 403 -> "المفتاح مرفوض"; 429 -> "الحد مستهلك الآن"; else -> clamp(e.message, 70) }
-            stat(s.id).last = m
+            val m = if (e is InterruptedIOException) "انتهت المهلة" else friendlyApi(st, e.message)
+            stat(s.id).last = m; stat(s.id).hard = st == 401 || st == 403
             m
         }
     }

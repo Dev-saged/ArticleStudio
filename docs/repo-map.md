@@ -26,9 +26,10 @@
 ## Solved bugs (never reintroduce)
 - تعليق التنقل: لا تعد `observeAll` ولا فك التشفير خارج `SecretStore.cache`.
 - `SchemaRules.sanitize` كان يقص المسافات أثناء الكتابة؛ في الحقول استعمل `trim = false`.
-- تداخل الواجهة مع أشرطة النظام (targetSdk 36 يفرض edge-to-edge): استعمل `EdgeBar` لا حشواً متفرقاً.
+- تداخل الواجهة مع الأشرطة: استعمل `EdgeBar`.
 - وصف RSS مهرّب (`&lt;p&gt;`): فك الكيانات قبل إزالة الوسوم ثم بعدها. `NewsSources.clean`.
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
+- أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
 - 7 رموز (bulb، heart…) كانت تسقط لأن `stroke="url(#gf)"` لم يُدعم؛ `MotifTest` يغطي كل الرموز.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 

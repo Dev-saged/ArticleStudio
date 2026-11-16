@@ -37,6 +37,7 @@ class SiteProfilerTest {
         val s = ProfileLogic.parseFeed(feed)!!
         val ok = ProfileLogic.parseAi("<think>x</think>```json\n{\"niche\":\"tech\",\"topic\":\"تقنية وذكاء\",\"audience\":\"الشباب\",\"tone\":\"weird\",\"length\":\"long\",\"keywords\":[\"ai\",\"هواتف\"],\"labels\":[],\"avoid\":\"\",\"rules\":\"\"}\n```", s)!!
         assertEquals("tech", ok.niche); assertEquals("friendly", ok.tone); assertEquals("long", ok.length); assertTrue(ok.usedAi); assertTrue(ok.labels.isNotEmpty())
+        assertNotNull(ProfileLogic.parseAi("{\"niche\":\"tech\",\"keywords\":[{\"k\":\"ai\"},[\"x\"],\"هواتف\"]}", s))
         assertNotNull(ProfileLogic.parseAi("{\"niche\":\"nope\",\"keywords\":[\"a\"]}", s)); assertNull(ProfileLogic.parseAi("لا json", s)); assertNull(ProfileLogic.parseAi("{\"niche\":\"tech\"}", s))
     }
 

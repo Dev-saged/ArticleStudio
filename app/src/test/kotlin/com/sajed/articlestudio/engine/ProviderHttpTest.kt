@@ -76,9 +76,24 @@ class ProviderHttpTest {
         assertEquals(1, engine.stat("custom").fail)
     }
 
-    @Test fun validatorRejectionCountsAsFailure() {
+    @Test fun validatorRejectionIsNotAProviderFailure() {
         server.enqueue(ok(long))
-        fails(ChatOpts(noWait = true, validate = { throw IllegalStateException("غير صالح") }))
-        assertEquals("غير صالح", engine.stat("custom").last)
+        val m = fails(ChatOpts(noWait = true, validate = { throw IllegalStateException("غير صالح") }))
+        assertTrue(m.contains("رد غير صالح"))
+        assertEquals("", engine.stat("custom").last); assertEquals(0, engine.stat("custom").fail)
+    }
+
+    @Test fun apiErrorsAreShownInFriendlyArabic() {
+        assertEquals("الحساب يحتاج وسيلة دفع عند المزود", friendlyApi(402, "x"))
+        assertEquals("النموذج لم يعد متاحاً، يُجرَّب غيره تلقائياً", friendlyApi(410, "x"))
+        assertEquals("الحد مستهلك أو الخادم مزدحم مؤقتاً", friendlyApi(429, "x"))
+        assertEquals("خطأ مؤقت من خادم المزود", friendlyApi(503, "x"))
+    }
+
+    @Test fun testReportsFriendlyMessageWhenModelIsGone() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404).setBody("gone"))
+        val spec = com.sajed.articlestudio.data.ProviderCatalog.all.first { it.id == "custom" }
+        val r = engine.test(spec)
+        assertEquals("النموذج لم يعد متاحاً، يُجرَّب غيره تلقائياً", r)
     }
 }

@@ -65,7 +65,7 @@ import javax.inject.Inject
 
 data class ProviderUi(
     val spec: ProviderSpec, val enabled: Boolean, val hasKey: Boolean, val model: String, val base: String,
-    val ok: Int, val fail: Int, val last: String, val testing: Boolean = false, val testMsg: String = "",
+    val ok: Int, val fail: Int, val last: String, val testing: Boolean = false, val testMsg: String = "", val hard: Boolean = false,
 ) { val ready get() = enabled && (!spec.needsKey || hasKey) }
 
 @HiltViewModel
@@ -81,7 +81,7 @@ class ProvidersViewModel @Inject constructor(
     private fun load(msgs: Map<String, Pair<Boolean, String>>) = ProviderCatalog.all.map { s ->
         val (ok, fail) = health.totals(s.id)
         val m = msgs[s.id]
-        ProviderUi(s, store.enabled(s.id), store.hasKey(s.id), store.model(s.id), store.base(s.id), ok, fail, engine.stat(s.id).last, m?.first ?: false, m?.second.orEmpty())
+        ProviderUi(s, store.enabled(s.id), store.hasKey(s.id), store.model(s.id), store.base(s.id), ok, fail, engine.stat(s.id).last, m?.first ?: false, m?.second.orEmpty(), engine.stat(s.id).hard)
     }
 
     private fun reload() = _list.update { old -> load(old.associate { it.spec.id to (it.testing to it.testMsg) }) }
@@ -103,7 +103,7 @@ class ProvidersViewModel @Inject constructor(
         _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = true, testMsg = "جارٍ الاختبار…") else it } }
         viewModelScope.launch {
             val r = engine.test(s)
-            _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = false, testMsg = r, last = engine.stat(id).last) else it } }
+            _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = false, testMsg = r, last = engine.stat(id).last, hard = engine.stat(id).hard) else it } }
         }
     }
 
@@ -197,7 +197,7 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                                 if (p.ok + p.fail > 0) add("نجاح ${p.ok.toString().ltr()} · إخفاق ${p.fail.toString().ltr()}")
                                 if (p.testMsg.isNotEmpty()) add(p.testMsg) else if (p.last.isNotEmpty()) add(p.last)
                             }.joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall, color = if (p.last.isNotEmpty() && p.testMsg.isEmpty()) c.red else c.muted,
+                            style = MaterialTheme.typography.bodySmall, color = if (p.hard) c.red else if (p.last.isNotEmpty()) c.goldText else c.muted,
                         )
                     }
                 }
