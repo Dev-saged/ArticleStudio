@@ -182,7 +182,7 @@ class SitesViewModel @Inject constructor(
 }
 
 private fun pubSummary(s: SiteConfig) = when (s.pubMode) {
-    "script", "google" -> "النشر: ${pubModeLabel(s.pubMode)} · " + when (s.pubState) { "live" -> "مباشر"; "scheduled" -> "مجدول"; else -> "مسودة" }
+    "google" -> "النشر: ${pubModeLabel(s.pubMode)} · " + when (s.pubState) { "live" -> "مباشر"; "scheduled" -> "مجدول"; else -> "مسودة" }
     else -> "النشر المباشر متوقف"
 }
 

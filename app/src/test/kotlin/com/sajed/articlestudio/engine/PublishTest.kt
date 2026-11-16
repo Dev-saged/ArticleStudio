@@ -29,24 +29,6 @@ class PublishTest {
 
     private fun json(body: String, code: Int = 200) = MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body)
 
-    @Test fun scriptBridgeFollowsRedirectAndSendsPayload() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", server.url("/final").toString()))
-        server.enqueue(json("""{"ok":true,"id":"77","url":"https://b.blogspot.com/p/77.html"}"""))
-        val p = ScriptPublisher(http, server.url("/exec").toString(), "SECRET1", "https://b.blogspot.com")
-        val r = p.publish(item, PubState.Draft)
-        assertEquals("77", r.id); assertEquals("https://b.blogspot.com/p/77.html", r.url)
-        val body = server.takeRequest().body.readUtf8()
-        assertTrue(body, body.contains("\"secret\":\"SECRET1\"") && body.contains("\"draft\":true") && body.contains("\"action\":\"post\""))
-        assertEquals("GET", server.takeRequest().method)
-    }
-
-    @Test fun scriptBridgeMapsErrors() = runBlocking {
-        server.enqueue(json("""{"ok":false,"error":"السر غير مطابق (secret)"}"""))
-        try { ScriptPublisher(http, server.url("/exec").toString(), "x", "https://b.blogspot.com").test(); fail() } catch (e: PublishException) { assertTrue(e.auth) }
-        server.enqueue(MockResponse().setBody("<html>تسجيل الدخول</html>"))
-        try { ScriptPublisher(http, server.url("/exec").toString(), "x", "https://b.blogspot.com").test(); fail() } catch (e: PublishException) { assertTrue(e.message!!.contains("exec")) }
-    }
-
     @Test fun googleResolvesBlogThenInsertsWithBearerAndDraftFlag() = runBlocking {
         server.enqueue(json("""{"id":"123","name":"مدونتي"}"""))
         server.enqueue(json("""{"id":"9","url":"https://b.blogspot.com/2026/11/x.html"}"""))
@@ -58,15 +40,12 @@ class PublishTest {
         assertTrue(b.body.readUtf8().contains("\"labels\":[\"أخبار\",\"تحليل\"]"))
     }
 
-    @Test fun googleScheduledSendsFutureDateAndDraftSendsDraft() = runBlocking {
-        val future = Instant.now().plusSeconds(7200)
-        server.enqueue(json("""{"id":"1","name":"n"}""")); server.enqueue(json("""{"id":"2","url":"u"}""")); server.enqueue(json("""{"id":"3","url":"u"}"""))
+    @Test fun googleDraftSendsDraftFlagOnly() = runBlocking {
+        server.enqueue(json("""{"id":"1","name":"n"}""")); server.enqueue(json("""{"id":"2","url":"u"}"""))
         val g = GooglePublisher(http, { "T" }, "https://b.blogspot.com", server.url("/v3").toString().trimEnd('/'))
-        g.publish(PublishItem("t", "c", emptyList(), future), PubState.Scheduled)
         g.publish(item, PubState.Draft)
         server.takeRequest()
-        val s = server.takeRequest(); assertTrue(s.body.readUtf8().contains("\"published\""))
-        val d = server.takeRequest(); assertTrue(d.path!!.contains("isDraft=true"))
+        val d = server.takeRequest(); assertTrue(d.path!!.contains("isDraft=true")); assertEquals(2, server.requestCount)
     }
 
     @Test fun googleErrorsAreClassified() = runBlocking {
@@ -107,34 +86,26 @@ class PublishTest {
         try { XmlImport.parse("not xml"); fail() } catch (e: Exception) { }
     }
 
-    @Test fun bridgeScriptEmbedsSecretAndRequiredCalls() {
-        val code = BridgeScript.TEMPLATE.replace("__SECRET__", "ABC123")
-        assertTrue(code.contains("const SECRET = 'ABC123'"))
-        assertTrue(code.contains("Blogger.Posts.insert") && code.contains("Blogger.Blogs.getByUrl") && code.contains("function doPost"))
-        assertFalse(code.contains("__SECRET__"))
-    }
-
     @Test fun siteValidationCoversPublishingFields() {
-        val s = SiteConfig("s", "موقع", "https://t.example.com", pubMode = "script", scriptUrl = "http://evil.com/x")
-        assertTrue(SiteRules.validate(s).containsKey("scriptUrl"))
-        assertTrue(SiteRules.validate(s.copy(scriptUrl = "https://script.google.com/macros/s/AKfy/exec")).isEmpty())
+        val s = SiteConfig("s", "موقع", "https://t.example.com", pubMode = "google")
+        assertTrue(SiteRules.validate(s).isEmpty())
         assertTrue(SiteRules.validate(s.copy(pubMode = "weird")).containsKey("pubMode"))
-        assertTrue(SiteRules.validate(s.copy(pubMode = "google", scriptUrl = "")).isEmpty())
+        assertTrue(SiteRules.validate(s.copy(pubMode = "google")).isEmpty())
     }
 
-    @Test fun managerGeneratesStableSecretPerSite() {
-        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val store = object : com.sajed.articlestudio.data.SecretStore(ctx) {
-            private val m = HashMap<String, String>()
-            override fun put(name: String, value: String) { m[name] = value }
-            override fun get(name: String) = m[name].orEmpty()
-            override fun has(name: String) = m.containsKey(name)
-        }
-        val sites = SiteStore(ctx)
-        val db = androidx.room.Room.inMemoryDatabaseBuilder(ctx, com.sajed.articlestudio.data.AppDb::class.java).allowMainThreadQueries().build()
-        val pm = PublishManager(http, store, sites, db.articles(), GoogleAuth(ctx), BlogIndex(ctx, http))
-        val a = pm.secretFor("default"); assertEquals(28, a.length); assertEquals(a, pm.secretFor("default"))
-        assertTrue(pm.secretFor("other") != a)
-        assertTrue(pm.script(sites.active()).contains(a))
+    @Test fun scheduledPostIsCreatedAsDraftThenPublishedWithDate() = runBlocking {
+        server.enqueue(json("""{"id":"B1","name":"مدونة"}"""))
+        server.enqueue(json("""{"id":"P9","url":"https://b.blogspot.com/p9.html"}"""))
+        server.enqueue(json("""{"id":"P9","url":"https://b.blogspot.com/p9.html"}"""))
+        val api = server.url("/blogger/v3").toString().trimEnd('/')
+        val g = GooglePublisher(http, { "TOKEN" }, "https://b.blogspot.com", api)
+        val at = Instant.parse("2030-05-01T08:00:00Z")
+        val r = g.publish(PublishItem(item.title, item.html, item.labels, at), PubState.Scheduled)
+        assertEquals("P9", r.id)
+        server.takeRequest()
+        val ins = server.takeRequest()
+        assertTrue(ins.path!!, ins.path!!.contains("isDraft=true"))
+        val pub = server.takeRequest()
+        assertTrue(pub.path!!, pub.path!!.contains("/posts/P9/publish") && pub.path!!.contains("publishDate=2030-05-01T08"))
     }
 }

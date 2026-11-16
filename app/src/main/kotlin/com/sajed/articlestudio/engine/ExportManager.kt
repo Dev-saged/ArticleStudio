@@ -40,7 +40,7 @@ class ExportUi(
 class ExportManager @Inject constructor(
     @ApplicationContext private val ctx: Context, private val arts: ArticleDao, private val renderer: ImageRenderer,
     private val gh: GitHubClient, private val cfg: GitHubSettings, private val history: HistoryStore, private val blog: BlogIndex,
-    private val sites: SiteStore, private val publisher: PublishManager,
+    private val sites: SiteStore, private val publisher: PublishManager, private val http: okhttp3.OkHttpClient,
 ) {
     private val dir get() = File(ctx.filesDir, "exports").apply { mkdirs() }
     private val _ui = MutableStateFlow(ExportUi())
@@ -52,21 +52,62 @@ class ExportManager @Inject constructor(
     class PubUi(val running: Boolean = false, val done: Int = 0, val total: Int = 0, val report: PublishReport? = null, val siteId: String = "")
     private val _pub = MutableStateFlow(PubUi())
     val pub: StateFlow<PubUi> = _pub.asStateFlow()
-    private var pending: Pair<String, List<PublishEntry>>? = null
+    private class Pending(val siteId: String, val entries: List<PublishEntry>, val probes: List<String>)
+    private var pending: Pending? = null
 
     init { refreshFiles() }
+
+    /** يتأكد أن صور المقالات صارت متاحة على الشبكة قبل النشر، فلا تظهر المنشورات بصور مكسورة. */
+    private suspend fun imagesLive(probes: List<String>, step: (Int) -> Unit): Boolean {
+        val client = http.newBuilder().callTimeout(15, java.util.concurrent.TimeUnit.SECONDS).build()
+        probes.forEachIndexed { i, u ->
+            step(i)
+            var ok = false
+            for (attempt in 0 until 8) {
+                ok = try { client.newCall(okhttp3.Request.Builder().url(u).head().build()).await().use { it.isSuccessful } } catch (e: CancellationException) { throw e } catch (e: Exception) { false }
+                if (ok) break
+                kotlinx.coroutines.delay(5_000)
+            }
+            if (!ok) return false
+        }
+        step(probes.size)
+        return true
+    }
+
+    /** مرحلتا التأكد من الصور ثم النشر؛ تُحدّثان شريط المراحل نفسه الذي يرى المستخدم. */
+    private suspend fun publishStages(siteId: String, entries: List<PublishEntry>, probes: List<String>, idx: Int, count: Int): PublishReport {
+        if (probes.isNotEmpty()) {
+            stage("تأكيد ظهور الصور", idx, count, 0, probes.size)
+            val live = imagesLive(probes) { d -> stage("تأكيد ظهور الصور", idx, count, d, probes.size) }
+            if (!live) {
+                pending = Pending(siteId, entries, probes)
+                return PublishReport(fatal = "الصور لم تظهر بعد على الشبكة (قد يتأخر jsDelivr دقائق). اضغط «متابعة النشر» بعد قليل.", retryable = true)
+            }
+        }
+        stage("النشر على بلوجر", idx + 1, count, 0, entries.size)
+        val r = try { publisher.publish(siteId, entries) { d, t -> stage("النشر على بلوجر", idx + 1, count, d, t) } }
+        catch (e: CancellationException) { throw e } catch (e: Exception) { PublishReport(fatal = clamp(e.message, 140)) }
+        pending = if (r.consent != null || r.fatal != null) Pending(siteId, entries, emptyList()) else null
+        return r
+    }
+
+    /** إعادة محاولة آخر نشر توقّف لانتظار ظهور الصور أو ربط الحساب أو لخطأ صلاحية. */
+    suspend fun retryPublish() = withContext(Dispatchers.Default) {
+        val p = pending ?: return@withContext
+        _ui.value = ExportUi(true, "", 0, 0)
+        val r = publishStages(p.siteId, p.entries, p.probes, 1, 2)
+        _ui.update { ExportUi(false, summary = it.summary) }
+        _pub.value = PubUi(false, r.total, r.total, r, p.siteId)
+    }
 
     private suspend fun runPublish(siteId: String, entries: List<PublishEntry>): PublishReport {
         _pub.value = PubUi(true, 0, entries.size, siteId = siteId)
         val r = try { publisher.publish(siteId, entries) { d, t -> _pub.value = PubUi(true, d, t, siteId = siteId) } }
         catch (e: CancellationException) { throw e } catch (e: Exception) { PublishReport(fatal = clamp(e.message, 140)) }
-        pending = if (r.consent != null || r.fatal != null) siteId to entries else null
+        pending = if (r.consent != null || r.fatal != null) Pending(siteId, entries, emptyList()) else null
         _pub.value = PubUi(false, r.total, r.total, r, siteId)
         return r
     }
-
-    /** إعادة محاولة آخر نشر توقّف لانتظار ربط الحساب أو لخطأ صلاحية. */
-    suspend fun retryPublish() = withContext(Dispatchers.Default) { pending?.let { (sid, e) -> runPublish(sid, e) } }
 
     suspend fun publishFile(siteId: String, name: String) = withContext(Dispatchers.Default) {
         val f = File(dir, name).takeIf { it.exists() && it.parentFile == dir } ?: return@withContext
@@ -100,7 +141,8 @@ class ExportManager @Inject constructor(
             val rows = arts.readyFor(site.id)
             if (rows.isEmpty()) throw IllegalStateException("لا مقالات جاهزة للتصدير")
             val auto = cfg.autoPush
-            val count = 4
+            val willPublish = publisher.enabled(site) && auto
+            val count = if (willPublish) 6 else 4
             if (auto) { if (cfg.token.isEmpty()) throw IllegalStateException("أدخل GitHub Token أو عطّل الرفع التلقائي"); stage("فحص صلاحيات GitHub", 1, count); gh.check() }
             val parsed = rows.map { it to AppJson.decodeFromString(Article.serializer(), it.data) }
             val list = XmlBuilder.assignSlugs(parsed.map { it.second }, history.load(site.id).slugs.toSet() + blog.slugs(site.url))
@@ -129,9 +171,15 @@ class ExportManager @Inject constructor(
             val pubEntries = if (publisher.enabled(site) && auto) runCatching { XmlImport.parse(xml) }.getOrDefault(emptyList()).let { items -> items.mapIndexed { i, it -> PublishEntry(it, rows.getOrNull(i)?.takeIf { items.size == rows.size }?.id) } } else emptyList()
             history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } }, site.id)
             refreshFiles()
-            _ui.value = ExportUi(false, summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }, name.removeSuffix(".xml")))
-            if (pubEntries.isNotEmpty()) runPublish(site.id, pubEntries)
-            else if (publisher.enabled(site)) _pub.value = PubUi(report = PublishReport(fatal = "النشر المباشر يتطلب رفع الصور تلقائياً؛ فعّل «الرفع التلقائي» أو انشر الملف المحفوظ لاحقاً"), siteId = site.id)
+            val summary = ExportSummary(name, list.size, files.size, auto, list.map { it.title }, name.removeSuffix(".xml"))
+            if (pubEntries.isNotEmpty()) {
+                _ui.update { ExportUi(true, "", 5, count, summary = summary) }
+                val probes = listOfNotNull(list.first(), list.last()).map { "$base${it.finalSlug}-cover.jpg" }.distinct()
+                val r = publishStages(site.id, pubEntries, probes, 5, count)
+                _pub.value = PubUi(false, r.total, r.total, r, site.id)
+            }
+            _ui.value = ExportUi(false, summary = summary)
+            if (pubEntries.isEmpty() && publisher.enabled(site)) _pub.value = PubUi(report = PublishReport(fatal = "النشر المباشر يتطلب رفع الصور تلقائياً؛ فعّل «الرفع التلقائي» أو انشر الملف المحفوظ لاحقاً"), siteId = site.id)
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             _ui.value = ExportUi(false, error = clamp(e.message, 160), summary = _ui.value.summary)
         }

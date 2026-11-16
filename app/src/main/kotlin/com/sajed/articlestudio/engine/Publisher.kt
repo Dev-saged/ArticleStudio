@@ -61,40 +61,6 @@ internal suspend fun <T> withRetry(times: Int = 3, base: Long = 1500, block: sus
 
 private fun instant(at: Instant?, state: PubState): String? = if (state == PubState.Scheduled && at != null && at.isAfter(Instant.now())) at.toString() else null
 
-/** جسر Apps Script: تطبيق ويب يملكه المستخدم وينشر عبر Blogger API بحسابه، فلا حاجة لمشروع Google Cloud. */
-class ScriptPublisher(private val http: OkHttpClient, private val url: String, private val secret: String, private val blogUrl: String) : BlogPublisher {
-    private val client = http.newBuilder().callTimeout(60, TimeUnit.SECONDS).build()
-
-    private suspend fun call(body: JsonObject): JsonObject {
-        val rq = Request.Builder().url(url.toHttpUrl()).post(body.toString().toRequestBody(JSON_MEDIA)).build()
-        val (code, text) = exec(client, rq)
-        if (code in 500..599 || code == 429) throw PublishException("الخادم مشغول ($code)", retry = true)
-        val obj = runCatching { lenient.parseToJsonElement(text).jsonObject }.getOrNull()
-            ?: throw PublishException("الرابط لا يرد بصيغة صحيحة. تأكد أن النشر «تنفيذ كـ: أنا» و«من يملك الوصول: أي شخص»، وأن الرابط ينتهي بـ /exec", auth = true)
-        if (obj["ok"]?.jsonPrimitive?.booleanOrNull != true) {
-            val err = obj["error"]?.jsonPrimitive?.contentOrNull ?: "رفض الجسر الطلب"
-            throw PublishException(err, auth = err.contains("secret", true) || err.contains("السر"))
-        }
-        return obj
-    }
-
-    override suspend fun test(): String = withRetry {
-        val o = call(buildJsonObject { put("action", "test"); put("secret", secret); put("blogUrl", blogUrl) })
-        o["name"]?.jsonPrimitive?.contentOrNull ?: "مدونة"
-    }
-
-    override suspend fun publish(item: PublishItem, state: PubState): Remote = withRetry {
-        val o = call(buildJsonObject {
-            put("action", "post"); put("secret", secret); put("blogUrl", blogUrl)
-            put("title", item.title); put("content", item.html)
-            put("labels", buildJsonArray { item.labels.forEach { add(JsonPrimitive(it)) } })
-            put("draft", state == PubState.Draft)
-            instant(item.at, state)?.let { put("publishDate", it) }
-        })
-        Remote(o["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), o["url"]?.jsonPrimitive?.contentOrNull.orEmpty())
-    }
-}
-
 /** Blogger API v3 الرسمي برمز وصول OAuth يوفّره تسجيل الدخول بجوجل داخل التطبيق. */
 class GooglePublisher(private val http: OkHttpClient, private val token: suspend () -> String, private val blogUrl: String, private val api: String = "https://www.googleapis.com/blogger/v3") : BlogPublisher {
     private var blogId: String? = null
@@ -125,18 +91,32 @@ class GooglePublisher(private val http: OkHttpClient, private val token: suspend
 
     override suspend fun test(): String = withRetry { resolve(); blogName.ifBlank { "مدونة" } }
 
-    override suspend fun publish(item: PublishItem, state: PubState): Remote = withRetry {
+    private fun remote(text: String): Remote {
+        val o = lenient.parseToJsonElement(text).jsonObject
+        return Remote(o["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), o["url"]?.jsonPrimitive?.contentOrNull.orEmpty())
+    }
+
+    /** الجدولة وفق وثائق Blogger: تُنشأ مسودة ثم تُنشر بـ publishDate مستقبلي. */
+    override suspend fun publish(item: PublishItem, state: PubState): Remote {
         val id = resolve()
         val at = instant(item.at, state)
-        val u = "$api/blogs/$id/posts".toHttpUrl().newBuilder().addQueryParameter("isDraft", (state == PubState.Draft).toString()).build()
-        val body = buildJsonObject {
-            put("kind", "blogger#post"); put("title", item.title); put("content", item.html)
-            put("labels", buildJsonArray { item.labels.forEach { add(JsonPrimitive(it)) } })
-            at?.let { put("published", it) }
+        val draft = state == PubState.Draft || at != null
+        val created = withRetry {
+            val u = "$api/blogs/$id/posts".toHttpUrl().newBuilder().addQueryParameter("isDraft", draft.toString()).build()
+            val body = buildJsonObject {
+                put("kind", "blogger#post"); put("title", item.title); put("content", item.html)
+                put("labels", buildJsonArray { item.labels.forEach { add(JsonPrimitive(it)) } })
+            }
+            val (code, text) = exec(http, Request.Builder().url(u).header("Authorization", "Bearer ${token()}").post(body.toString().toRequestBody(JSON_MEDIA)).build())
+            check(code, text)
+            remote(text)
         }
-        val (code, text) = exec(http, Request.Builder().url(u).header("Authorization", "Bearer ${token()}").post(body.toString().toRequestBody(JSON_MEDIA)).build())
-        check(code, text)
-        val o = lenient.parseToJsonElement(text).jsonObject
-        Remote(o["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), o["url"]?.jsonPrimitive?.contentOrNull.orEmpty())
+        if (at == null) return created
+        return withRetry {
+            val u = "$api/blogs/$id/posts/${created.id}/publish".toHttpUrl().newBuilder().addQueryParameter("publishDate", at).build()
+            val (code, text) = exec(http, Request.Builder().url(u).header("Authorization", "Bearer ${token()}").post("".toRequestBody(JSON_MEDIA)).build())
+            check(code, text)
+            remote(text).let { if (it.id.isEmpty()) created else it }
+        }
     }
 }
