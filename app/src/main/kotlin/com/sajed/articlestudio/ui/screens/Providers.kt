@@ -71,7 +71,7 @@ data class ProviderUi(
 @HiltViewModel
 class ProvidersViewModel @Inject constructor(
     private val store: ProviderStore, private val engine: ProviderEngine, private val health: HealthStore, private val backup: com.sajed.articlestudio.data.KeyBackup,
-    val updater: com.sajed.articlestudio.engine.Updater,
+    val updater: com.sajed.articlestudio.engine.Updater, private val images: com.sajed.articlestudio.engine.ImageEngine,
 ) : ViewModel() {
     private val _list = MutableStateFlow(load(emptyMap()))
     val list: StateFlow<List<ProviderUi>> = _list.asStateFlow()
@@ -79,9 +79,14 @@ class ProvidersViewModel @Inject constructor(
     val note: StateFlow<String> = _note.asStateFlow()
 
     private fun load(msgs: Map<String, Pair<Boolean, String>>) = ProviderCatalog.all.map { s ->
-        val (ok, fail) = health.totals(s.id)
         val m = msgs[s.id]
-        ProviderUi(s, store.enabled(s.id), store.hasKey(s.id), store.model(s.id), store.base(s.id), ok, fail, engine.stat(s.id).last, m?.first ?: false, m?.second.orEmpty(), engine.stat(s.id).hard)
+        if (s.kind == "image") {
+            val st = images.stat(s.id)
+            ProviderUi(s, store.enabled(s.id), store.hasKey(s.id), "", "", st.ok, st.fail, st.last, m?.first ?: false, m?.second.orEmpty(), st.hard)
+        } else {
+            val (ok, fail) = health.totals(s.id)
+            ProviderUi(s, store.enabled(s.id), store.hasKey(s.id), store.model(s.id), store.base(s.id), ok, fail, engine.stat(s.id).last, m?.first ?: false, m?.second.orEmpty(), engine.stat(s.id).hard)
+        }
     }
 
     private fun reload() = _list.update { old -> load(old.associate { it.spec.id to (it.testing to it.testMsg) }) }
@@ -92,7 +97,7 @@ class ProvidersViewModel @Inject constructor(
             store.save(id, if (custom) SchemaRules.sanitize(v["model"].orEmpty(), 120) else "", if (custom) SchemaRules.sanitize(v["base"].orEmpty(), 200).trimEnd('/') else "",
                 SchemaRules.sanitize(v["key"].orEmpty(), 300), v["enabled"] == "true")
         } catch (e: SecretException) { _note.value = e.message.orEmpty() }
-        engine.resetCooldown(id)
+        engine.resetCooldown(id); images.resetCooldown(id)
         reload()
     }
 
@@ -102,6 +107,11 @@ class ProvidersViewModel @Inject constructor(
         val s = ProviderCatalog.spec(id)
         _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = true, testMsg = "جارٍ الاختبار…") else it } }
         viewModelScope.launch {
+            if (s.kind == "image") {
+                val r = images.test(id)
+                _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = false, testMsg = r, last = images.stat(id).last, hard = images.stat(id).hard, ok = images.stat(id).ok, fail = images.stat(id).fail) else it } }
+                return@launch
+            }
             val r = engine.test(s)
             _list.update { l -> l.map { if (it.spec.id == id) it.copy(testing = false, testMsg = r, last = engine.stat(id).last, hard = engine.stat(id).hard) else it } }
         }
@@ -112,7 +122,7 @@ class ProvidersViewModel @Inject constructor(
     fun note(m: String) { _note.value = m }
     fun setEnabled(id: String, on: Boolean) {
         try { store.save(id, store.model(id), store.base(id), "", on) } catch (e: SecretException) { _note.value = e.message.orEmpty() }
-        engine.resetCooldown(id); reload()
+        engine.resetCooldown(id); images.resetCooldown(id); reload()
     }
     fun clearNote() { _note.value = "" }
 }
@@ -127,7 +137,7 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
     val c = AppTheme.colors
     val ctx = LocalContext.current
     var editing by remember { mutableStateOf<ProviderUi?>(null) }
-    val sorted = remember(list) { list.sortedWith(compareBy({ if (it.ready) 0 else if (it.enabled && it.spec.needsKey) 1 else 2 }, { ProviderCatalog.all.indexOf(it.spec) })) }
+    val sorted = remember(list) { list.sortedWith(compareBy({ if (it.spec.kind == "image") 3 else 0 }, { if (it.ready) 0 else if (it.enabled && it.spec.needsKey) 1 else 2 }, { ProviderCatalog.all.indexOf(it.spec) })) }
     val importPick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val t = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().takeIf { b -> b.size <= 1_000_000 }?.toString(Charsets.UTF_8) } }.getOrNull()
@@ -176,6 +186,9 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
         }
         item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater, showCurrent = true) }
         items(sorted, key = { it.spec.id }) { p ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (p.spec.kind == "image" && sorted.first { it.spec.kind == "image" } == p) Text("مصادر الصور", style = MaterialTheme.typography.titleLarge, color = c.text, modifier = Modifier.padding(top = 10.dp))
+
             Panel(Modifier.fillMaxWidth().clickable { editing = p }) {
                 Column(Modifier.padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -201,6 +214,8 @@ fun ProvidersScreen(vm: ProvidersViewModel = hiltViewModel()) {
                         )
                     }
                 }
+            }
+        
             }
         }
     }

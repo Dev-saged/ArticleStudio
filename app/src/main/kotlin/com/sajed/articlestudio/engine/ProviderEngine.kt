@@ -158,6 +158,11 @@ class ProviderEngine @Inject constructor(
                 "sambanova" -> by(good(ids(get("$base/models", emptyMap())))).take(3)
                 "nvidia" -> by(good(ids(get("$base/models", hd))).filter { !Regex("coder|code|safety|reward|parse|embed|mixtral|-\\d{1,2}b\\b|\\b\\d{1,2}b-|nano|bolt|guard|v0\\.", RegexOption.IGNORE_CASE).containsMatchIn(it) }).take(4)
                 "zai" -> runCatching { good(ids(get("$base/models", hd))).filter { it.contains("flash", true) }.take(2) }.getOrDefault(emptyList())
+                "together" -> runCatching {
+                    val arr = get("$base/models", hd) as? JsonArray ?: JsonArray(emptyList())
+                    by(good(arr.mapNotNull { (it as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull }.filter { it.endsWith("Free", true) && !it.contains("flux", true) })).take(3)
+                }.getOrDefault(emptyList())
+                "github" -> listOf("openai/gpt-4.1-mini", "openai/gpt-4o-mini", "meta/Llama-3.3-70B-Instruct")
                 "longcat" -> runCatching { good(ids(get("$base/models", hd))).take(3) }.getOrDefault(emptyList()).ifEmpty { listOf("LongCat-Flash-Chat") }
                 "llm7" -> by(good(ids(get("$base/models", emptyMap()))).filter { !Regex("code|pro|:").containsMatchIn(it) }).take(3)
                 "zen" -> by(good(ids(get("$base/models", emptyMap()))).filter { it.endsWith("-free") }).take(3)
@@ -172,6 +177,7 @@ class ProviderEngine @Inject constructor(
             "nvidia" -> listOf("mistralai/mistral-large", "nvidia/nemotron-3-super-120b-a12b")
             "zai" -> listOf("glm-4.7-flash", "glm-4.5-flash")
             "llm7" -> listOf("glm-5.3-flash", "deepseek-v4.1-flash")
+            "together" -> listOf("meta-llama/Llama-3.3-70B-Instruct-Turbo-Free")
             else -> emptyList()
         }
         models[s.id] = now() to v
