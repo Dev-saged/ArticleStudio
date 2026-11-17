@@ -21,11 +21,8 @@
 ## Decisions
 - كل موقع مستقل بمفتاح `siteId`؛ `default` = سبورت لايف 24 ويحتفظ بقائمة `seed`.
 - كل مقال يُحفظ في Room فور اكتماله؛ المهمة تستأنف من `jobs.next` بعد أي توقف.
-- الصور بإيداع واحد لفرع `blog-images`، روابط jsDelivr بمعرّف الإيداع.
-- رقم البناء = `GITHUB_RUN_NUMBER`؛ التاج `vX.Y.Z-bN`.
 
 ## Solved bugs (never reintroduce)
-- تعليق التنقل: لا تعد `observeAll` ولا فك التشفير خارج `SecretStore.cache`.
 - `SchemaRules.sanitize` كان يقص المسافات أثناء الكتابة؛ في الحقول استعمل `trim = false`.
 - تداخل الواجهة مع الأشرطة: استعمل `EdgeBar`.
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
