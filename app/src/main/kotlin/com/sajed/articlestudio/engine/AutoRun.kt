@@ -51,19 +51,19 @@ class AutoRunner @Inject constructor(
         try {
             var started = 0
             for (s in sites.sites.value) {
-                if (runner.isRunning()) break
+                if (runner.isRunning(s.id)) continue
                 if (!AutoPlan.due(s, lastRun(s.id), now, hour)) continue
                 if (providers.readySpecs().isEmpty()) { bus.log("التوليد التلقائي: لا مزود جاهز", "w"); break }
                 sp.edit().putLong("last-${s.id}", now).apply()
-                val j = jobs.latest()
-                if (j != null && j.state == "running" && j.siteId == s.id && j.next < j.total) runner.resume()
+                val j = jobs.latestFor(s.id)
+                if (j != null && j.state == "running" && j.next < j.total) runner.resume(s.id)
                 else runner.start(s.autoCount, runCatching { PlanMode.valueOf(s.mode) }.getOrDefault(PlanMode.News), "", s.id)
                 bus.log("توليد تلقائي لـ«${s.name}»: ${s.autoCount} مقالات")
                 runCatching { GenerationService.start(ctx) }
                 started++
                 delay(2_000)
                 val t0 = System.currentTimeMillis()
-                while (runner.isRunning() && System.currentTimeMillis() - t0 < maxWaitMs) delay(3_000)
+                while (runner.isRunning(s.id) && System.currentTimeMillis() - t0 < maxWaitMs) delay(3_000)
             }
             return started
         } finally { lock.unlock() }

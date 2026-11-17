@@ -7,7 +7,7 @@
 - الثيم، المكونات، الحركة، الأيقونات → `ui/theme/*`، `ui/Components.kt`، `ui/Motion.kt`، `ui/icons/Icons.kt`
 - الحرّاس → `engine/Guards.kt` (`NicheGuard` مجال، `FactGuard` أرقام/اقتباسات، `toneGuide`)؛ الصور الواقعية → `engine/PhotoService.kt` فوق `engine/ImageEngine.kt` (سلسلة: Gemini، Together، Cloudflare، Pollinations، Pexels، Pixabay؛ تجميد وإحصاءات؛ احتياط SVG)؛ فهرس الموقع → `engine/SiteIndex.kt`
 - المخططات → `schema/*`؛ الرسم → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ الشاشات → `ui/screens/*`
-- الرئيسية → `ui/home/*` → `HomeViewModel`، `PitchBoard`
+- الرئيسية = غرفة التحكم: بطاقات المواقع (`SiteCard`) ثم غرفة الموقع → `ui/home/*` → `HomeViewModel` (`openRoom`، `quick`)، `PitchBoard` ثابتة لكل المواقع
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
 - المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
@@ -29,11 +29,10 @@
 - أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
-- مراحل التصدير: 4 دون نشر، 6 معه (`publishStages`: HEAD للصور ثم النشر)؛ `retryPublish` يكمل.
-- النشر المباشر عبر XML نفسه (`XmlImport.parse`)؛ روابط «اقرأ أيضاً» للدفعة تُحذف؛ الـ API لا يضبط permalink.
 - مصادر الصور مواصفاتها في `ProviderCatalog` بـ`kind="image"` ومفاتيحها `key.<id>`؛ Gemini وTogether يعيدان استعمال مفتاح النص. Cloudflare: `ACCOUNT_ID:TOKEN`.
 - مهلات الشبكة: `DataModule.http` قراءة 60ث/كتابة 90ث؛ `GitHubClient.gh` يعيد 3 مرات للشبكة/5xx/429. سبب «timeout» القديم: مهلة 10ث الافتراضية.
 - المتوقف عن النشر: `ExportManager.publishPending` (من XML المحفوظ)، زر «انشر المتوقف» في Export.
+- `JobRunner`: مهمة مستقلة لكل موقع (`runs[siteId]`)؛ `states`/`stateOf(id)`، `state` مجمّع؛ `Semaphore(3)` يحد مقالات LLM المتزامنة؛ `resume(siteId)`، `stop(siteId?)`.
 
 ## Open issues
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).

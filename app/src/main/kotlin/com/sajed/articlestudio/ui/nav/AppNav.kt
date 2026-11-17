@@ -75,6 +75,7 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
     val c = AppTheme.colors
     val ticker by live.text.collectAsStateWithLifecycle()
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    val homeVm: com.sajed.articlestudio.ui.home.HomeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 
     val edge = WindowInsets.systemBars.union(WindowInsets.displayCutout)
     AmbientBackground {
@@ -88,8 +89,8 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
                 popEnterTransition = { fadeIn(tween(140)) },
                 popExitTransition = { fadeOut(tween(90)) },
             ) {
-                composable("home") { HomeScreen(c.isDark, onToggleTheme, onOpenTest = { nav.navigate(TEST) }) }
-                composable("sites") { SitesScreen(onGenerate = { nav.navigate("home") { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
+                composable("home") { HomeScreen(c.isDark, onToggleTheme, onOpenTest = { nav.navigate(TEST) }, vm = homeVm) }
+                composable("sites") { SitesScreen(onGenerate = { homeVm.openRoom(homeVm.sites.activeId.value); nav.navigate("home") { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
                 composable("articles") { ArticlesScreen() }
                 composable("providers") { ProvidersScreen() }
                 composable("export") { ExportScreen() }

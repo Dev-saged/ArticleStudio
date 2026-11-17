@@ -34,6 +34,7 @@ class JobRunnerTest {
     private val server = MockWebServer()
     private lateinit var db: AppDb
     private lateinit var runner: JobRunner
+    private lateinit var siteStore: SiteStore
     private val postCalls = ArrayList<String>()
     private var metaCalls = 0
 
@@ -82,8 +83,9 @@ ${words(30)}
         store.save("custom", "m", server.url("/v1").toString().trimEnd('/'), "k", true)
         val http = OkHttpClient(); val bus = RunBus()
         val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
+        siteStore = SiteStore(ctx)
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), SiteStore(ctx), PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" })
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), siteStore, PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" })
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }
@@ -119,7 +121,7 @@ ${words(30)}
     @Test fun resumeContinuesFromTheStoredIndexOnly() = runBlocking {
         val topics = listOf(Topic("موضوع أول عن الكلاسيكو"), Topic("موضوع ثان عن التسلل"), Topic("موضوع ثالث عن الدفاع"))
         val id = db.jobs().upsert(JobEntity(total = 3, done = 1, state = "paused", createdAt = 1, topics = AppJson.encodeToString(ListSerializer(Topic.serializer()), topics), next = 1, mode = "Mine"))
-        runner.resume()
+        runner.resume("default")
         await(3)
         assertEquals(2, db.articles().readyFor("default").size)
         assertEquals(2, metaCalls)
@@ -132,6 +134,20 @@ ${words(30)}
         db.articles().upsert(row("أ", "exported", "tech")); db.articles().upsert(row("ب", "exported", "tech", "published"))
         db.articles().upsert(row("ج", "ready", "tech")); db.articles().upsert(row("د", "exported", "default"))
         assertEquals(listOf("أ"), db.articles().unpublished("tech").map { it.title })
+    }
+
+    @Test fun twoSitesRunInParallelWithIndependentState() = runBlocking {
+        siteStore.upsert(SiteConfig(id = "s2", name = "موقع ثان", url = "https://two.example.com", niche = "sport", nicheLabel = "رياضة"))
+        runner.start(1, PlanMode.Mine, "موضوع أول عن الكلاسيكو الكبير", "default")
+        runner.start(1, PlanMode.Mine, "موضوع ثان عن التسلل في الدوري", "s2")
+        assertTrue(runner.isRunning("default") || runner.stateOf("default").done > 0)
+        val t0 = System.currentTimeMillis()
+        while ((runner.isRunning() || runner.stateOf("default").done + runner.stateOf("s2").done < 2) && System.currentTimeMillis() - t0 < 40_000) Thread.sleep(100)
+        assertEquals(1, runner.stateOf("default").done); assertEquals(1, runner.stateOf("s2").done)
+        assertEquals(setOf("default", "s2"), runner.states.value.keys)
+        assertEquals(2, runner.state.value.done)
+        assertEquals(listOf("default"), db.articles().readyFor("default").map { it.siteId }.distinct())
+        assertEquals(1, db.articles().readyFor("s2").size)
     }
 
     @Test fun duplicateTopicIsExcludedWithoutFailureOrModelCall() = runBlocking {

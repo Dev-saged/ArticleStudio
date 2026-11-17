@@ -79,12 +79,14 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
         else vm.go()
     }
 
-    LazyColumn(
+    androidx.activity.compose.BackHandler(enabled = s.room) { vm.closeRoom() }
+    if (!s.room) ControlRoom(s, vm, isDark, onToggleTheme, onOpenTest) { logs = true } else LazyColumn(
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item("head") {
             Row(Modifier.stagger(0), verticalAlignment = Alignment.Top) {
+                IconBtn(Icons.Back, "كل المواقع", { vm.closeRoom() })
                 Column(Modifier.weight(1f)) {
                     Text(
                         "غرفة العمليات", style = MaterialTheme.typography.headlineLarge, color = c.text,
@@ -107,7 +109,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
             val cur = list.firstOrNull { it.id == act }
             var pick by remember { mutableStateOf(false) }
             if (cur != null) {
-                Panel(Modifier.fillMaxWidth().clickable(enabled = list.size > 1 && !s.running) { pick = true }) {
+                Panel(Modifier.fillMaxWidth().clickable(enabled = list.size > 1) { pick = true }) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(c.gold), contentAlignment = Alignment.Center) {
                             Text(cur.name.trim().firstOrNull { it.isLetterOrDigit() }?.toString() ?: "•", style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color(0xFF1B1204))
@@ -117,7 +119,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                             Text(cur.name, style = MaterialTheme.typography.titleMedium, color = c.text)
                             Text("${cur.topicLabel} · ${cur.host}".replace(Regex("[A-Za-z0-9.\\-]+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.bodySmall, color = c.muted)
                         }
-                        if (list.size > 1) Text(if (s.running) "مقفل أثناء التوليد" else "تبديل", style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                        if (list.size > 1) Text("تبديل", style = MaterialTheme.typography.labelLarge, color = c.goldText)
                     }
                 }
             }
@@ -140,7 +142,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
             }
         }
         item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }
-        if (s.siteNiche == "sport") item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
+        item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
         item("stats") {
             Row(Modifier.stagger(2), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Stat("مقالات جاهزة", "${s.done}/${s.shownTotal}".ltr(), Modifier.weight(1f))
@@ -241,5 +243,79 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
             Text(value, style = NumberStyle, color = c.goldText, maxLines = 1)
             Text(label, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal), color = c.muted, maxLines = 1)
         }
+    }
+}
+
+@Composable
+private fun ControlRoom(s: HomeUiState, vm: HomeViewModel, isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Unit, onLogs: () -> Unit) {
+    val c = AppTheme.colors
+    var taps by remember { mutableIntStateOf(0) }
+    var lastTap by remember { mutableLongStateOf(0L) }
+    val live = s.cards.count { it.running }
+    LazyColumn(contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item("head") {
+            Row(Modifier.stagger(0), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "غرفة التحكم", style = MaterialTheme.typography.headlineLarge, color = c.text,
+                        modifier = Modifier.clickable(remember { MutableInteractionSource() }, null) {
+                            val now = System.currentTimeMillis()
+                            taps = if (now - lastTap < 600) taps + 1 else 1
+                            lastTap = now
+                            if (taps >= 5) { taps = 0; onOpenTest() }
+                        },
+                    )
+                    Text(if (live == 0) "كل المواقع هادئة" else "${live.toString().ltr()} ${if (live == 1) "موقع يعمل الآن" else "مواقع تعمل الآن"}", style = MaterialTheme.typography.bodyMedium, color = if (live == 0) c.muted else c.goldText)
+                }
+                IconBtn(Icons.Document, "سجل العمليات", onLogs)
+                IconBtn(if (isDark) Icons.Sun else Icons.Moon, "تبديل الوضع الفاتح والغامق", onToggleTheme)
+            }
+        }
+        item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }
+        item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
+        items(s.cards, key = { it.id }) { k -> SiteCard(k, { vm.openRoom(k.id) }, { vm.quick(k.id) }) }
+    }
+}
+
+@Composable
+private fun SiteCard(k: SiteCardUi, onOpen: () -> Unit, onQuick: () -> Unit) {
+    val c = AppTheme.colors
+    val bar by animateFloatAsState(k.progress, tween(500), label = "card")
+    Panel(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+        Column(Modifier.padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(if (k.running) c.red else c.gold), contentAlignment = Alignment.Center) {
+                    Text(k.name.trim().firstOrNull { it.isLetterOrDigit() }?.toString() ?: "•", style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color(0xFF1B1204))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(k.name, style = MaterialTheme.typography.titleMedium, color = c.text, maxLines = 1)
+                    Text("${k.topic} · ${k.host}".replace(Regex("[A-Za-z0-9.\\-]+")) { "⁦" + it.value + "⁩" }, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 1)
+                }
+                if (k.running || k.resumable) AppChip(if (k.running) "إيقاف" else "استئناف", k.running, onQuick)
+            }
+            if (k.running || k.resumable || k.total > 0) {
+                Box(Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(5.dp)).background(c.line)) {
+                    Box(Modifier.fillMaxWidth(bar).height(7.dp).clip(RoundedCornerShape(5.dp)).background(if (k.running) c.red else c.gold))
+                }
+                Text(
+                    if (k.running) (if (k.phase.isEmpty()) "جارٍ العمل…" else k.phase) + " · " + "${k.done + k.failed}/${k.total}".ltr() else if (k.resumable) "متوقف مؤقتاً عند " + "${k.done + k.failed}/${k.total}".ltr() else "آخر مهمة: " + "${k.done}/${k.total}".ltr(),
+                    style = MaterialTheme.typography.bodySmall, color = if (k.running) c.text else c.muted, maxLines = 2,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Mini("جاهز", k.ready, Modifier.weight(1f), k.ready > 0)
+                Mini("لم يُنشر", k.stuck, Modifier.weight(1f), k.stuck > 0)
+                Mini("منشور", k.published, Modifier.weight(1f), false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Mini(label: String, n: Int, modifier: Modifier, hot: Boolean) {
+    val c = AppTheme.colors
+    Column(modifier) {
+        Text(n.toString().ltr(), style = NumberStyle.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize), color = if (hot) c.goldText else c.text)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 1)
     }
 }
