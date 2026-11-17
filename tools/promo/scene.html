@@ -1,0 +1,167 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:A;font-weight:400;src:url(../../app/src/main/res/font/almarai_regular.ttf)}
+@font-face{font-family:A;font-weight:700;src:url(../../app/src/main/res/font/almarai_bold.ttf)}
+@font-face{font-family:A;font-weight:800;src:url(../../app/src/main/res/font/almarai_extrabold.ttf)}
+:root{--bg:#0b1020;--s:#18213a;--line:#2c3858;--tx:#f3f5fa;--mu:#a7b0c8;--gold:#f2c84b;--gold2:#e8a026;--red:#f0524a;--ok:#5fd6a0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--bg);font-family:A,sans-serif;color:var(--tx)}
+#bg{position:absolute;inset:0;background:radial-gradient(900px 900px at 20% 15%,rgba(240,82,74,.28),transparent 60%),radial-gradient(1000px 1000px at 85% 85%,rgba(242,200,75,.26),transparent 60%),linear-gradient(160deg,#0b1020,#121a30)}
+#dots{position:absolute;inset:-64px;background-image:radial-gradient(circle,rgba(255,255,255,.08) 1.6px,transparent 1.8px);background-size:64px 64px}
+.sc{position:absolute;inset:0;opacity:0}
+.h{position:absolute;left:60px;right:60px;text-align:center;font-weight:800;font-size:92px;line-height:1.25}
+.p{position:absolute;left:80px;right:80px;text-align:center;font-weight:400;font-size:42px;color:var(--mu);line-height:1.5}
+.gold{color:var(--gold)}
+.cap{position:absolute;left:50px;right:50px;bottom:150px;text-align:center;font-weight:800;font-size:46px;line-height:1.55;padding:26px 34px;border-radius:34px;background:rgba(10,14,26,.72);border:2px solid var(--line);backdrop-filter:blur(6px)}
+.card{position:absolute;left:100px;right:100px;height:230px;border-radius:40px;background:var(--s);border:2px solid var(--line);padding:34px 40px}
+.disc{width:84px;height:84px;border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:#1b1204}
+.bar{height:14px;border-radius:8px;background:var(--line);overflow:hidden;position:relative}
+.bar i{position:absolute;right:0;top:0;bottom:0;border-radius:8px}
+.node{position:absolute;width:620px;height:120px;left:230px;border-radius:60px;background:var(--s);border:3px solid var(--line);display:flex;align-items:center;padding:0 40px;font-size:44px;font-weight:800;gap:24px}
+.dot{width:36px;height:36px;border-radius:50%;background:var(--line)}
+.row{position:absolute;left:110px;right:110px;height:128px;border-radius:32px;background:var(--s);border:2px solid var(--line);display:flex;align-items:center;gap:30px;padding:0 40px;font-size:46px;font-weight:800}
+.tick{width:64px;height:64px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+.chip{display:inline-block;padding:14px 30px;border-radius:40px;border:2px solid var(--line);background:#1b2542;font-size:34px;font-weight:700;margin:8px}
+#prog{position:absolute;left:0;bottom:0;height:10px;background:linear-gradient(90deg,var(--gold2),var(--gold));width:0}
+#brand{position:absolute;top:64px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:18px;font-size:34px;font-weight:800;color:var(--mu)}
+</style></head><body>
+<div id="bg"></div><div id="dots"></div>
+<div id="brand"><svg width="52" height="52" viewBox="0 0 256 256"><g fill="none" stroke="#f2c84b" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path d="M52 214V82a30 30 0 0 1 30-30h92a30 30 0 0 1 30 30v132"/><path d="M88 118h80M88 160h38" stroke-width="20"/></g><circle cx="166" cy="176" r="17" fill="#f2c84b"/></svg><span>استوديو المقالات</span></div>
+
+<!-- s0 -->
+<div class="sc" id="s0">
+  <svg id="logo" width="380" height="380" viewBox="0 0 256 256" style="position:absolute;left:350px;top:420px"><g fill="none" stroke="#f2c84b" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path id="lp1" d="M52 214V82a30 30 0 0 1 30-30h92a30 30 0 0 1 30 30v132"/><path id="lp2" d="M88 118h80M88 160h38" stroke-width="20"/></g><circle id="lc" cx="166" cy="176" r="17" fill="#f2c84b"/></svg>
+  <div class="h" id="t0" style="top:880px;font-size:108px;white-space:nowrap">استوديو المقالات</div>
+  <div class="p gold" id="t0b" style="top:1100px;font-size:56px;font-weight:800">اكتب · صمّم · انشر</div>
+  <div id="ul" style="position:absolute;top:1030px;left:250px;right:250px;height:8px;border-radius:4px;background:linear-gradient(90deg,#e8a026,#f2c84b)"></div>
+</div>
+<!-- s1 -->
+<div class="sc" id="s1">
+  <div class="h" style="top:190px">عدة مواقع <span class="gold">بيدٍ واحدة</span></div>
+  <div class="card" id="c0" style="top:470px"></div><div class="card" id="c1" style="top:740px"></div><div class="card" id="c2" style="top:1010px"></div>
+</div>
+<!-- s2 -->
+<div class="sc" id="s2">
+  <div class="h" style="top:190px">لا يتوقف <span class="gold">أبداً</span></div>
+  <div class="p" style="top:420px">تبديل تلقائي بين المزودين</div>
+  <div id="nodes"></div>
+  <div id="ball" style="position:absolute;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b8,#f2c84b 55%,#e8a026);box-shadow:0 0 50px rgba(242,200,75,.8);left:262px;top:0"></div>
+</div>
+<!-- s3 -->
+<div class="sc" id="s3">
+  <div class="h" style="top:190px">دقة <span class="gold">لا تُساوَم</span></div>
+  <div id="rows"></div>
+  <div id="off" class="chip" style="position:absolute;left:200px;right:200px;top:1330px;text-align:center;font-size:40px"></div>
+</div>
+<!-- s4 -->
+<div class="sc" id="s4">
+  <div class="h" style="top:190px">أغلفة <span class="gold">واقعية</span></div>
+  <div id="cover" style="position:absolute;left:90px;right:90px;top:400px;height:780px;border-radius:44px;overflow:hidden;border:3px solid var(--line);background:#101a2c">
+    <div id="cv1" style="position:absolute;inset:0;background:radial-gradient(700px 420px at 30% 30%,#2f7a4f,transparent 70%),radial-gradient(800px 500px at 80% 80%,#caa23a,transparent 65%),linear-gradient(180deg,#0e2a1d,#07120d)"></div>
+    <div id="cv2" style="position:absolute;left:-10%;right:-10%;top:48%;height:6px;background:rgba(255,255,255,.35);transform:rotate(-4deg)"></div>
+    <div id="cv3" style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(5,8,14,.92))"></div>
+    <div style="position:absolute;right:50px;bottom:140px;left:50px;color:#f2c84b;font-size:32px;font-weight:800" id="kick">تحليل</div>
+    <div style="position:absolute;right:50px;bottom:48px;left:50px;font-size:56px;font-weight:800;line-height:1.3" id="ttl">كيف يتغيّر شكل المواجهة الكبرى؟</div>
+  </div>
+  <div id="chips" style="position:absolute;left:70px;right:70px;top:1260px;text-align:center"></div>
+</div>
+<!-- s5 -->
+<div class="sc" id="s5">
+  <div class="h" style="top:190px">غرفة <span class="gold">التحكم</span></div>
+  <div class="card" id="k0" style="top:450px;height:300px"></div><div class="card" id="k1" style="top:790px;height:300px"></div><div class="card" id="k2" style="top:1130px;height:300px"></div>
+</div>
+<!-- s6 -->
+<div class="sc" id="s6">
+  <div class="h" style="top:190px">من الفكرة <span class="gold">إلى النشر</span></div>
+  <div id="pipe"></div>
+  <div class="h" id="fin" style="top:1330px;font-size:104px">استوديو المقالات</div>
+  <div class="p gold" id="fin2" style="top:1500px;font-size:48px;font-weight:800">مقالاتك، بقوة الذكاء الاصطناعي</div>
+</div>
+<div class="cap" id="cap"></div>
+<div id="prog"></div>
+
+<script>
+const D=60, SCRIPT=__SCRIPT__;
+const $=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3), eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2, eb=x=>{const c=1.70158,d=c+1;return 1+d*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const NF=n=>String(n).replace(/\d/g,d=>d);
+const SITES=[["س","سبورت لايف","رياضة","#f0524a"],["ت","تك أوبس","تقنية","#f0524a"],["د","دليل المطبخ","طبخ","#f2c84b"]];
+SITES.forEach((s,i)=>{ $("c"+i).innerHTML=`<div style="display:flex;gap:26px;align-items:center"><div class="disc" style="background:${s[3]}">${s[0]}</div><div style="flex:1"><div style="font-size:46px;font-weight:800">${s[1]}</div><div style="font-size:30px;color:var(--mu)">${s[2]}</div></div><div id="cs${i}" style="font-size:30px;color:${s[3]};border:2px solid ${s[3]};padding:6px 26px;border-radius:30px">يعمل</div></div><div class="bar" style="margin-top:34px"><i id="cb${i}" style="background:${s[3]};width:0"></i></div><div id="cp${i}" style="font-size:30px;color:var(--mu);margin-top:16px"></div>`;
+  $("k"+i).innerHTML=`<div style="display:flex;gap:26px;align-items:center"><div class="disc" style="background:${s[3]}">${s[0]}</div><div style="flex:1"><div style="font-size:48px;font-weight:800">${s[1]}</div><div id="kp${i}" style="font-size:30px;color:var(--mu)"></div></div></div><div class="bar" style="margin-top:30px"><i id="kb${i}" style="background:${s[3]};width:0"></i></div><div style="display:flex;gap:70px;margin-top:22px"><div><b id="ka${i}" style="font-size:44px;color:var(--gold)">0</b><div style="font-size:26px;color:var(--mu)">جاهز</div></div><div><b id="kc${i}" style="font-size:44px">0</b><div style="font-size:26px;color:var(--mu)">منشور</div></div></div>`;
+});
+const PROV=["Gemini","Groq","OpenRouter","GitHub Models","Together"];
+$("nodes").innerHTML=PROV.map((n,i)=>`<div class="node" id="n${i}" style="top:${560+i*170}px"><div class="dot" id="d${i}"></div><span>${n}</span><span id="m${i}" style="margin-right:auto;font-size:30px;color:var(--mu)"></span></div>`).join("");
+const RULES=["مجال الموقع فقط","أرقام موثّقة بمصدر","بلا اقتباسات مخترعة","بلا تكرار لمقالاتك"];
+$("rows").innerHTML=RULES.map((r,i)=>`<div class="row" id="r${i}" style="top:${480+i*160}px"><div class="tick"><svg width="36" height="36" viewBox="0 0 24 24"><path id="tk${i}" d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="#06200f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="30" stroke-dashoffset="30"/></svg></div><span>${r}</span></div>`).join("");
+const SRC=["Gemini","Together FLUX","Cloudflare FLUX","Pollinations","Pexels","رسم SVG"];
+$("chips").innerHTML=SRC.map((n,i)=>`<span class="chip" id="ch${i}">${n}</span>`).join("");
+const PIPE=[["XML","تصدير"],["GitHub","رفع الصور"],["Blogger","نشر مباشر"]];
+$("pipe").innerHTML=PIPE.map((p,i)=>`<div class="node" id="p${i}" style="top:${470+i*250}px;left:200px;width:680px;height:170px;flex-direction:column;justify-content:center;gap:4px;border-radius:44px"><div style="font-size:54px;font-weight:800">${p[0]}</div><div style="font-size:32px;color:var(--mu);font-weight:400">${p[1]}</div></div>`).join("");
+
+const caps=SCRIPT; const caption=t=>{const c=caps.find(s=>t>=s.start&&t<s.start+s.dur);return c};
+function fade(el,t,a,b,inT=.5,outT=.5){el.style.opacity=clamp(Math.min((t-a)/inT,(b-t)/outT))}
+
+window.render=function(t){
+  $("dots").style.transform=`translate(${(t*18)%64}px,${(t*26)%64}px)`;
+  $("prog").style.width=(t/D*100)+"%";
+  $("brand").style.opacity=t<2?clamp((t-1.4)/.6):1;
+  // scenes visibility
+  caps.forEach((s,i)=>{const el=$(s.id);fade(el,t,s.start-.25,s.start+s.dur+.25,i==0?.01:.5,.5)});
+  const c=caption(t); const cp=$("cap");
+  if(c){const k=(t-c.start); cp.textContent=c.text; cp.style.opacity=clamp(Math.min(k/.4,(c.dur-k)/.4)); cp.style.transform=`translateY(${(1-eo(clamp(k/.5)))*40}px)`} else cp.style.opacity=0;
+  // s0
+  {const k=t; const L=[["lp1",760],["lp2",200]];
+   L.forEach(([id,len])=>{const e=$(id);e.style.strokeDasharray=len;e.style.strokeDashoffset=len*(1-eio(seg(k,.1,1.6)))});
+   $("lc").style.opacity=seg(k,1.3,1.8); $("lc").setAttribute("r",17*eb(seg(k,1.3,2)));
+   $("logo").style.transform=`scale(${1+.04*Math.sin(k*1.6)}) translateY(${-30*eo(seg(k,.2,2.5))}px)`;
+   const a=eo(seg(k,1.4,2.4)); $("t0").style.opacity=a; $("t0").style.transform=`translateY(${(1-a)*60}px)`; $("t0").style.filter=`blur(${(1-a)*14}px)`;
+   $("ul").style.transform=`scaleX(${eo(seg(k,2.2,3.2))})`; const b=eo(seg(k,2.8,3.8)); $("t0b").style.opacity=b; $("t0b").style.transform=`translateY(${(1-b)*40}px)`}
+  // s1
+  {const k=t-6; for(let i=0;i<3;i++){const e=$("c"+i);const a=eb(seg(k,.5+i*.35,1.3+i*.35));e.style.transform=`translateX(${(1-a)*900}px) scale(${.9+.1*a})`;
+    const pr=[.72,.4,1][i]*eo(seg(k,1.6,6.5)); $("cb"+i).style.width=pr*100+"%";
+    $("cp"+i).textContent=["يكتب مقال ","يكتب مقال ","اكتمل التوليد · "][i]+(i==2?"":Math.round(pr*6)+"/6")+(i==2?"6/6":"");
+    if(i==2){$("cs"+i).textContent="جاهز"}}}
+  // s2
+  {const k=t-14; const seq=[0,1,2,3]; // ball path: 0 -> 1(fail) -> 2 -> ok
+    for(let i=0;i<5;i++){const e=$("n"+i);const a=eo(seg(k,.3+i*.2,1+i*.2));e.style.opacity=a;e.style.transform=`translateX(${(1-a)*300}px)`}
+    const T=[[1.6,0],[3.2,1],[5.8,2],[8.2,3]]; let idx=0,pos=0;
+    const times=[2.0,3.6,6.0,8.0], ys=[0,1,2,2];
+    let y=0; const Y=i=>560+i*170+32;
+    const stops=[[1.2,0],[2.6,0],[3.0,1],[4.8,1],[5.2,2],[9.5,2]];
+    for(let j=0;j<stops.length-1;j++){const [a,ia]=stops[j],[b,ib]=stops[j+1]; if(k>=a&&k<=b){y=Y(ia)+(Y(ib)-Y(ia))*eio(seg(k,a,b))} else if(k>b){y=Y(ib)}}
+    if(k<1.2)y=Y(0);
+    $("ball").style.top=y+"px"; $("ball").style.opacity=eo(seg(k,.8,1.3));
+    // statuses
+    const set=(i,col,txt)=>{$("d"+i).style.background=col;$("m"+i).textContent=txt};
+    set(0,k>2.6?"#f0524a":(k>1.2?"#f2c84b":"var(--line)"),k>2.6?"تعثّر":"");
+    $("n0").style.borderColor=k>2.6?"#f0524a":"var(--line)";
+    set(1,k>4.8?"#f0524a":(k>3?"#f2c84b":"var(--line)"),k>4.8?"مجمّد مؤقتاً":"");
+    $("n1").style.borderColor=k>4.8?"#f0524a":"var(--line)";
+    set(2,k>5.2?"#5fd6a0":"var(--line)",k>5.6?"تم بنجاح":""); $("n2").style.borderColor=k>5.2?"#5fd6a0":"var(--line)";}
+  // s3
+  {const k=t-24; for(let i=0;i<4;i++){const a=eo(seg(k,.4+i*.9,1+i*.9));const e=$("r"+i);e.style.opacity=a;e.style.transform=`translateX(${(1-a)*200}px)`;
+     $("tk"+i).style.strokeDashoffset=30*(1-seg(k,1+i*.9,1.5+i*.9))}
+   const o=$("off"); const a=seg(k,5,5.6); o.style.opacity=a*(1-seg(k,7.6,8.2)); o.innerHTML=`<span style="text-decoration:${k>6.2?"line-through":"none"};text-decoration-color:#f0524a;text-decoration-thickness:5px">موضوع خارج المجال</span> <b style="color:${k>6.2?"#f0524a":"var(--mu)"}">${k>6.2?"استُبعد":""}</b>`;}
+  // s4
+  {const k=t-33; const a=eb(seg(k,.3,1.2)); $("cover").style.transform=`scale(${.85+.15*a}) translateY(${(1-a)*80}px)`; $("cover").style.opacity=eo(seg(k,.3,.9));
+   $("cv1").style.transform=`scale(${1.12-.08*seg(k,0,9)}) translateX(${Math.sin(k)*14}px)`;
+   $("cv2").style.transform=`rotate(-4deg) translateX(${-200+400*eio(seg(k,1,4))}px)`;
+   const w=eo(seg(k,1.4,2.4)); $("ttl").style.opacity=w; $("ttl").style.transform=`translateY(${(1-w)*40}px)`; $("kick").style.opacity=eo(seg(k,1.1,1.8));
+   const act=Math.min(5,Math.floor(seg(k,2.5,8.5)*6));
+   for(let i=0;i<6;i++){const e=$("ch"+i);const a2=eo(seg(k,2+i*.15,2.6+i*.15));e.style.opacity=a2;e.style.transform=`translateY(${(1-a2)*30}px)`;
+     const on=i==act&&k>2.5; e.style.borderColor=on?"#f2c84b":"var(--line)"; e.style.color=on?"#f2c84b":"#f3f5fa"; e.style.background=on?"#2a2a22":"#1b2542"}}
+  // s5
+  {const k=t-43; for(let i=0;i<3;i++){const e=$("k"+i);const a=eb(seg(k,.4+i*.3,1.2+i*.3));e.style.transform=`translateY(${(1-a)*120}px)`;e.style.opacity=eo(seg(k,.4+i*.3,1+i*.3));
+     const run=[1,1,0][i]; const base=[.2,.1,1][i]; const spd=[.095,.075,0][i];
+     const p=run?clamp(base+spd*Math.max(0,k-1.2)):1; $("kb"+i).style.width=p*100+"%";
+     $("kp"+i).textContent=run?(i==0?"يكتب المقال "+(1+Math.floor(p*4))+" من 4":"يكتب المقال "+(1+Math.floor(p*5))+" من 5"):"اكتمل التوليد · جاهز للنشر";
+     $("ka"+i).textContent=run?Math.floor(p*[4,5,0][i]):6; $("kc"+i).textContent=[41,28,17][i]+(run?0:Math.floor(seg(k,3,7)*3))}
+   for(let i=0;i<2;i++)$("k"+i).style.borderColor=`rgba(240,82,74,${.5+.5*Math.sin(k*4+i)})`}
+  // s6
+  {const k=t-52; for(let i=0;i<3;i++){const a=eb(seg(k,.3+i*.7,1.1+i*.7));const e=$("p"+i);e.style.opacity=eo(seg(k,.3+i*.7,.9+i*.7));e.style.transform=`translateY(${(1-a)*100}px)`;
+      e.style.borderColor=k>1.1+i*.7?"#f2c84b":"var(--line)"}
+   const f=eo(seg(k,3.2,4.4)); $("fin").style.opacity=f; $("fin").style.transform=`scale(${.9+.1*f})`; $("fin2").style.opacity=eo(seg(k,4,5))}
+};
+</script></body></html>
