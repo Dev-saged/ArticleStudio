@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 103 ملفاً · 9722 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 322 · ProviderEngine.kt 289 · Providers.kt 264 · Generator.kt 249 · HomeScreen.kt 246 · Publish.kt 237
+> 105 ملفاً · 10044 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · HomeScreen.kt 246 · Publish.kt 237
 
 ### ./
 - CLAUDE.md (44)
@@ -38,7 +38,7 @@
 - Db.kt (114): ArticleRow, ArticleDao, JobDao, Migrations, AppDb
 - Entities.kt (43): ArticleEntity, JobEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
-- Providers.kt (57): ProviderSpec, ProviderCatalog, ProviderStore
+- Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (66): SecretException, SecretStore
 - Stores.kt (72): Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
@@ -54,12 +54,13 @@
 - GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
 - Guards.kt (82): NicheGuard, FactGuard, toneGuide
+- ImageEngine.kt (206): ImgReq, ImgHit, ImgStat, ImageEngine
 - ImageRenderer.kt (322): RenderedImages, ImageRenderer
 - JobRunner.kt (174): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
-- PhotoService.kt (140): PhotoPrompt, PhotoService
-- ProviderEngine.kt (289): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
+- PhotoService.kt (90): PhotoPrompt, PhotoService
+- ProviderEngine.kt (295): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
 - PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
 - Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - RunBus.kt (46): LogLine, PassEvent, RunBus
@@ -92,7 +93,7 @@
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
 - Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
 - Export.kt (326): ExportViewModel, ExportScreen, pubModeLabel
-- Providers.kt (264): ProviderUi, ProvidersViewModel, ProvidersScreen
+- Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (448): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
@@ -122,9 +123,10 @@
 - Fixtures.kt (14): sampleArticle
 - GeneratorTest.kt (106): GeneratorTest
 - GuardsTest.kt (52): GuardsTest
+- ImageEngineTest.kt (138): ImageEngineTest
 - JobRunnerTest.kt (141): JobRunnerTest
 - MotifTest.kt (22): MotifTest
-- PhotoServiceTest.kt (98): PhotoServiceTest
+- PhotoServiceTest.kt (99): PhotoServiceTest
 - ProviderHttpTest.kt (100): ProviderHttpTest
 - PublishTest.kt (112): PublishTest
 - RenderTest.kt (58): RenderTest
@@ -133,7 +135,7 @@
 - V3Test.kt (114): V3Test
 ### docs/
 - publishing.md (20)
-- repo-map.md (42)
+- repo-map.md (41)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
