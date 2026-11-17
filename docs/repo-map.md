@@ -36,4 +36,4 @@
 
 ## Open issues
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).
-- لم يُجرَّب: جهاز، مزودات حقيقية، Gemini للصور (مسار غير مُتحقَّق).
+- Media: `tools/{media,promo}` → `docs/media/`؛ مفتاح الصوت من env فقط.
