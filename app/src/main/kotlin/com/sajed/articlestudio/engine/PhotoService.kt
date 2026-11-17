@@ -4,29 +4,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import com.sajed.articlestudio.data.ProviderStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import java.net.URLEncoder
 import java.security.MessageDigest
-import java.util.Base64
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,16 +39,13 @@ object PhotoPrompt {
         "no text, letters, numbers, flags, logos or brands in the image; no violence. Reply with the prompt only."
 }
 
-/** يجلب صورة بارزة واقعية: Gemini (إن وُجد مفتاحه) ثم Pollinations بلا مفتاح؛ ويعيد null عند الفشل فيعمل رسم SVG الاحتياطي. */
+/** يجلب صورة بارزة عبر سلسلة مصادر الصور مع تبديل تلقائي؛ يعيد null عند فشلها كلها فيعمل رسم SVG الاحتياطي. */
 @Singleton
 class PhotoService @Inject constructor(
-    @ApplicationContext private val ctx: Context, private val http: OkHttpClient, private val store: ProviderStore, private val engine: ProviderEngine,
+    @ApplicationContext private val ctx: Context, private val images: ImageEngine, private val engine: ProviderEngine,
 ) {
-    internal var pollBase = "https://image.pollinations.ai/prompt/"
-    internal var geminiBase = "https://generativelanguage.googleapis.com/v1beta/models/"
     internal var promptWriter: Boolean = true
     private val dir by lazy { File(ctx.cacheDir, "photos").apply { mkdirs() } }
-    private val client by lazy { http.newBuilder().callTimeout(75, TimeUnit.SECONDS).readTimeout(70, TimeUnit.SECONDS).build() }
 
     suspend fun prompt(site: SiteConfig?, a: Article): String {
         if (!promptWriter) return PhotoPrompt.fallback(site, a)
@@ -83,40 +63,10 @@ class PhotoService @Inject constructor(
         val cache = File(dir, sha(p) + ".jpg")
         if (cache.exists()) decode(cache.readBytes())?.let { return@withContext it }
         val seed = (a.slug + a.title).hashCode().let { Math.abs(it % 100000) }
-        val geminiKey = store.key("gemini")
-        val tries = buildList {
-            if (geminiKey.isNotEmpty()) add("gemini" to 0)
-            add("pollinations" to seed); add("pollinations" to seed + 17)
-        }
-        for ((src, sd) in tries) {
-            note(if (src == "gemini") "صورة من Gemini" else "صورة من Pollinations")
-            val bytes = try { if (src == "gemini") gemini(p, geminiKey) else pollinations(p, sd) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
-            val bmp = bytes?.let { decode(it) }
-            if (bmp != null) { runCatching { cache.writeBytes(bytes) }; return@withContext bmp }
-        }
-        null
-    }
-
-    private fun pollinations(prompt: String, seed: Int): ByteArray? {
-        val url = pollBase + URLEncoder.encode(prompt, "UTF-8").replace("+", "%20") + "?width=1344&height=768&model=flux&nologo=true&seed=$seed"
-        client.newCall(Request.Builder().url(url).build()).execute().use { r -> return if (r.isSuccessful) r.body?.bytes() else null }
-    }
-
-    private fun gemini(prompt: String, key: String): ByteArray? {
-        for (model in listOf("gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation")) {
-            val body = buildJsonObject {
-                put("contents", buildJsonArray { add(buildJsonObject { put("parts", buildJsonArray { add(buildJsonObject { put("text", "Generate an image: $prompt") }) }) }) })
-                put("generationConfig", buildJsonObject { put("responseModalities", buildJsonArray { add(JsonPrimitive("IMAGE")); add(JsonPrimitive("TEXT")) }) })
-            }.toString()
-            val rq = Request.Builder().url("$geminiBase$model:generateContent").header("x-goog-api-key", key).post(body.toRequestBody("application/json".toMediaType())).build()
-            val txt = client.newCall(rq).execute().use { r -> if (r.isSuccessful) r.body?.string() else null } ?: continue
-            val parts = runCatching { AppJson.parseToJsonElement(txt).jsonObject["candidates"]!!.jsonArray[0].jsonObject["content"]!!.jsonObject["parts"]!!.jsonArray }.getOrNull() ?: continue
-            for (part in parts) {
-                val data = ((part as? JsonObject)?.get("inlineData") as? JsonObject)?.get("data")?.jsonPrimitive?.contentOrNull ?: continue
-                return runCatching { Base64.getDecoder().decode(data) }.getOrNull() ?: continue
-            }
-        }
-        return null
+        var bmp: Bitmap? = null
+        val hit = images.generate(ImgReq(p, p.substringBefore(',').split(' ').take(7).joinToString(" "), seed), note) { b -> decode(b)?.also { bmp = it } != null }
+        if (hit != null) runCatching { cache.writeBytes(hit.bytes) }
+        bmp
     }
 
     /** يقبل الصورة إن فُكّت وكانت كبيرة بما يكفي وليست شبه فارغة. */

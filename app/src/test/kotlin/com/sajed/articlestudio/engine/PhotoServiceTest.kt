@@ -49,8 +49,9 @@ class PhotoServiceTest {
         val store = ProviderStore(ctx, secrets)
         server.start()
         val http = OkHttpClient()
-        svc = PhotoService(ctx, http, store, ProviderEngine(http, store, HealthStore(ctx), RunBus()))
-        svc.pollBase = server.url("/prompt/").toString(); svc.promptWriter = false
+        val images = ImageEngine(http, store)
+        images.bases["img-pollinations"] = server.url("/prompt/").toString()
+        svc = PhotoService(ctx, images, ProviderEngine(http, store, HealthStore(ctx), RunBus())); svc.promptWriter = false
         File(ctx.cacheDir, "photos").deleteRecursively()
     }
 

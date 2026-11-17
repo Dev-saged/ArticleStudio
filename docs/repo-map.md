@@ -5,7 +5,7 @@
 ## Quick index (ميزة → ملف → ابحث بـ)
 - الهوية والألوان → `BrandConfig.kt` → `BrandConfig`
 - الثيم، المكونات، الحركة، الأيقونات → `ui/theme/*`، `ui/Components.kt`، `ui/Motion.kt`، `ui/icons/Icons.kt`
-- الحرّاس → `engine/Guards.kt` (`NicheGuard` مجال، `FactGuard` أرقام/اقتباسات، `toneGuide`)؛ الصور الواقعية → `engine/PhotoService.kt` (Gemini بمفتاحه ثم Pollinations، احتياط SVG)؛ فهرس الموقع → `engine/SiteIndex.kt`
+- الحرّاس → `engine/Guards.kt` (`NicheGuard` مجال، `FactGuard` أرقام/اقتباسات، `toneGuide`)؛ الصور الواقعية → `engine/PhotoService.kt` فوق `engine/ImageEngine.kt` (سلسلة: Gemini، Together، Cloudflare، Pollinations، Pexels، Pixabay؛ تجميد وإحصاءات؛ احتياط SVG)؛ فهرس الموقع → `engine/SiteIndex.kt`
 - المخططات → `schema/*`؛ الصور → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ الشاشات → `ui/screens/*`
 - الرئيسية → `ui/home/*` → `HomeViewModel`، `PitchBoard`
 - التنقل، `EdgeBar` → `ui/nav/AppNav.kt`
@@ -33,9 +33,10 @@
 
 - مراحل التصدير: 4 دون نشر، 6 معه (`ExportManager.publishStages`: تأكيد الصور بـ HEAD على غلاف الأول والأخير ثم النشر)؛ `retryPublish` يكمل المتوقف.
 - النشر المباشر يمر عبر XML نفسه (`XmlImport.parse`) فمسار التصدير والملف اليدوي واحد؛ روابط «اقرأ أيضاً» لمقالات الدفعة تُحذف لأن بلوجر يولّد الرابط؛ الـ API لا يضبط permalink ولا metaDescription.
-- لا جسر Apps Script ولا نشر بالبريد: لا خدمة Blogger في Apps Script، والبريد بلا تصنيفات/رابط راجع/جدولة. الجدولة = مسودة ثم `publish?publishDate`.
+- مصادر الصور مواصفاتها في `ProviderCatalog` بـ`kind="image"` ومفاتيحها `key.<id>`؛ Gemini وTogether يعيدان استعمال مفتاح النص. Cloudflare: `ACCOUNT_ID:TOKEN`.
 
 ## Open issues
+- لم يُجرَّب حياً: Together/Cloudflare/Pexels/Pixabay/GitHub Models (مُختبرة بـMockWebServer فقط).
 - المؤقت: WorkManager ساعة كحد أدنى وقد يتأخر مع Doze. لم يُجرَّب على جهاز.
 - لم يُجرَّب: سلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
 - لم يُجرَّب: جهاز، مزودات حقيقية، Gemini للصور (مسار غير مُتحقَّق).
