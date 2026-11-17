@@ -32,7 +32,14 @@ data class NodeUi(val name: String, val state: NodeState = NodeState.Idle, val c
 data class BallPass(val id: Int, val from: Int, val to: Int, val durationMs: Int)
 data class RowUi(val n: Int, val title: String, val words: Int, val provider: String)
 
+data class SiteCardUi(
+    val id: String, val name: String, val topic: String, val host: String, val running: Boolean, val resumable: Boolean,
+    val done: Int, val total: Int, val failed: Int, val phase: String, val ready: Int, val stuck: Int, val published: Int, val active: Boolean,
+) { val progress get() = if (total == 0) 0f else (done + failed).toFloat() / total }
+
 data class HomeUiState(
+    val room: Boolean = false,
+    val cards: List<SiteCardUi> = emptyList(),
     val total: Int = 10,
     val mode: PlanMode = PlanMode.News,
     val custom: String = "",
@@ -73,6 +80,7 @@ class HomeViewModel @Inject constructor(
     private var ballAt = 0
     private var lastPassId = 0
     private var currentPass: BallPass? = null
+    private val _room = MutableStateFlow(false)
 
     init {
         updater.check(auto = true)
@@ -91,7 +99,7 @@ class HomeViewModel @Inject constructor(
 
     private fun refresh() {
         val specs = nodeSpecs()
-        val job = runner.state.value
+        val job = runner.stateOf(sites.activeId.value)
         val active = bus.active.value
         val since = bus.activeSince.value
         val nodes = specs.map { s ->
@@ -113,12 +121,27 @@ class HomeViewModel @Inject constructor(
         val mine = articles.filter { it.jobId == job.jobId && (it.status == "ready" || it.status == "exported") }
         val words = mine.filter { it.words > 0 }
         val (inp, notice) = inputs.value
+        val cards = sites.sites.value.map { x ->
+            val st = runner.stateOf(x.id); val rs = articles.filter { it.siteId == x.id }
+            SiteCardUi(x.id, x.name, x.topicLabel, x.host, st.running, st.resumable && !st.running, st.done, st.total, st.failed, st.phase,
+                rs.count { it.status == "ready" }, rs.count { it.status == "exported" && it.remoteUrl.isEmpty() }, rs.count { it.remoteUrl.isNotEmpty() }, x.id == sites.activeId.value)
+        }
         _ui.value = HomeUiState(
+            room = _room.value, cards = cards,
             total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
             done = job.done, failed = job.failed, dup = job.dup, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
             pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
             avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count(sites.active().url), siteName = sites.active().name, siteNiche = sites.active().niche, siteCount = sites.sites.value.size,
         )
+    }
+
+    fun openRoom(id: String) { sites.setActive(id); _room.value = true }
+    fun closeRoom() { _room.value = false }
+
+    /** إجراء سريع من البطاقة: إيقاف الجاري أو استئناف المتوقف. */
+    fun quick(id: String) {
+        val st = runner.stateOf(id)
+        if (st.running) runner.stop(id) else if (st.resumable) { runner.resume(id); GenerationService.start(ctx) }
     }
 
     fun setTotal(n: Int) = inputs.update { (a, b) -> a.copy(first = n) to b }
@@ -128,11 +151,12 @@ class HomeViewModel @Inject constructor(
     /** يبدأ أو يستأنف أو يوقف؛ يعيد true إذا بدأ عملاً يحتاج الخدمة الأمامية. */
     fun go() {
         val s = _ui.value
-        if (s.running) { runner.stop(); return }
+        val sid = sites.activeId.value
+        if (s.running) { runner.stop(sid); return }
         if (store.readySpecs().isEmpty()) { inputs.update { it.first to "فعّل مزوداً واحداً على الأقل: أضف مفتاحاً أو فعّل Pollinations" }; return }
         if (s.mode == PlanMode.Mine && s.custom.lines().none { it.trim().length > 5 }) { inputs.update { it.first to "اكتب موضوعاً واحداً على الأقل في كل سطر" }; return }
         inputs.update { it.first to "" }
-        if (s.resumable) runner.resume() else runner.start(s.total, s.mode, s.custom, sites.activeId.value)
+        if (s.resumable) runner.resume(sid) else runner.start(s.total, s.mode, s.custom, sid)
         GenerationService.start(ctx)
     }
 }

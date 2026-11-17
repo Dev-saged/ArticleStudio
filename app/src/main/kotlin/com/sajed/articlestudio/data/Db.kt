@@ -75,6 +75,12 @@ interface JobDao {
     @Query("SELECT * FROM jobs ORDER BY id DESC LIMIT 1")
     suspend fun latest(): JobEntity?
 
+    @Query("SELECT * FROM jobs WHERE site_id = :siteId ORDER BY id DESC LIMIT 1")
+    suspend fun latestFor(siteId: String): JobEntity?
+
+    @Query("SELECT * FROM jobs WHERE id IN (SELECT MAX(id) FROM jobs GROUP BY site_id)")
+    suspend fun latestPerSite(): List<JobEntity>
+
     @Query("SELECT * FROM jobs ORDER BY id DESC LIMIT 1")
     fun observeLatest(): Flow<JobEntity?>
 

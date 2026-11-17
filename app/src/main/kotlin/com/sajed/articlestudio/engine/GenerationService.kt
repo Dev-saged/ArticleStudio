@@ -35,7 +35,7 @@ class GenerationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { runner.stop(); return START_NOT_STICKY }
+        if (intent?.action == ACTION_STOP) { runner.stop(intent.getStringExtra(EXTRA_SITE)); return START_NOT_STICKY }
         if (!enterForeground(build(JobUi()))) { stopSelf(); return START_NOT_STICKY }
         if (wake == null) {
             wake = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "articlestudio:gen").apply { acquire(3 * 60 * 60 * 1000L) }
@@ -94,6 +94,7 @@ class GenerationService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.sajed.articlestudio.STOP"
+        const val EXTRA_SITE = "site"
         private const val CHANNEL = "generation"
         private const val ID = 7
         fun start(c: Context) = ContextCompat.startForegroundService(c, Intent(c, GenerationService::class.java))
