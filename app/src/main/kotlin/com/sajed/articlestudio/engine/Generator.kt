@@ -35,6 +35,9 @@ private val EVERGREEN = listOf(
 
 private fun rules(site: SiteConfig) = """أنت ${site.nicheDef.persona} محترف في مدونة «${site.name}» المتخصصة في ${site.topicLabel}، تكتب للقارئ العربي${if (site.audience.isNotBlank()) " (الجمهور: ${site.audience})" else ""} بالفصحى المبسطة بأسلوب بشري مباشر وغني بالمعلومة، ونبرتك ${site.toneText}.
 قواعد صارمة:
+- هذه المدونة حصرية لمجال «${site.topicLabel}». اكتب ضمن هذا المجال فقط، ولا تستطرد في مجال آخر ولو ذكره الموضوع عرضاً.
+- ${toneGuide(site.niche)}
+- لا تنسب قولاً لأحد بين «» إلا إذا ورد حرفياً في المادة المرجعية. لا تستخدم مبالغات غير مسندة مثل «الأفضل عالمياً» أو «الأول» أو «الوحيد».
 - لا تخترع أي رقم أو نتيجة أو تاريخ أو اقتباس أو اسم شخص أو جهة. استخدم فقط ما ورد في «المادة المرجعية» إن وُجدت. وإن لم توجد فاكتب شرحاً عاماً دائماً (مفاهيم، خطوات، معلومات ثابتة معروفة) بلا أرقام قابلة للتغير.
 - ابدأ كل قسم بجملة تجيب مباشرة عن عنوانه، ثم فصّل بأمثلة وتشبيهات ومقارنات وفوائد عملية للقارئ.
 - ممنوع الحشو والعبارات المستهلكة مثل: «في عالم»، «لا شك أن»، «يعد من أبرز». لا تكرر الفكرة بصياغة أخرى.
@@ -75,6 +78,8 @@ private fun sysSec(site: SiteConfig) = """${rules(site)}
 ولا شيء غير ذلك.${if (site.tables) " في قسم واحد على الأقل، إن سمحت المادة، ضع بعد الفقرة الأولى جدول مقارنة صغيراً (3 أعمدة كحد أقصى و3 إلى 5 صفوف، السطر الأول عناوين الأعمدة) كل صف في سطر يبدأ بـ | وتفصل أعمدته | ، وإلا فاستخدم قائمة نقطية." else ""}"""
 
 private val LISTMARK = Regex("^([-*•]|\\d+[.)])\\s+")
+
+class OffTopicException(message: String) : Exception(message)
 
 @Singleton
 class Generator @Inject constructor(
@@ -162,6 +167,8 @@ class Generator @Inject constructor(
             Fact(clamp(p[0], 9), clamp(p.drop(1).joinToString("|"), 26)).takeIf { it.v.isNotEmpty() && it.c.isNotEmpty() }
         }.take(4)
         if (facts.size < 4) throw IllegalStateException("حقائق ناقصة")
+        val ok = FactGuard.allowed(t.topic, t.angle, *t.all.flatMap { listOf(it.h, it.d) }.toTypedArray())
+        facts.firstOrNull { FactGuard.unsupported(it.v, ok).isNotEmpty() }?.let { throw IllegalStateException("رقم غير مسند في الحقائق: ${it.v}") }
         val outline = l.tg("outline").lines().map { it.replace(LISTMARK, "").replace(Regex("^#+\\s*"), "").trim() }.filter { it.length in 4..100 }.take(6)
         if (outline.size < 4) throw IllegalStateException("عناوين أقسام ناقصة")
         val faq = l.tgAll("faq").mapNotNull { x ->
@@ -224,7 +231,11 @@ class Generator @Inject constructor(
             }
             at++
         }
-        val filled = secs.filterNotNull().map { Section(it.h, toHtml(it.body)) }
+        val okNums = FactGuard.allowed(t.topic, t.angle, first.title, *refs.flatMap { listOf(it.h, it.d) }.toTypedArray())
+        var dropped = 0
+        val filled = secs.filterNotNull().map { sc -> val (clean, n) = FactGuard.sanitize(sc.body, okNums, refs.isNotEmpty()); dropped += n; Section(sc.h, toHtml(clean)) }
+        if (dropped > 0) bus.log("حُذفت $dropped جملة بأرقام أو اقتباسات غير مسندة", "w")
+        NicheGuard.foreign(site, first.title + " " + first.intro + " " + filled.joinToString(" ") { stripTags(it.html) })?.let { throw OffTopicException("خارج مجال الموقع (يبدو $it)") }
         val words = wc(first.intro) + wc(first.outro) + filled.sumOf { wc(stripTags(it.html)) } + first.faq.sumOf { wc(it.a) }
         if (filled.size < 3) throw IllegalStateException("أقسام قليلة")
         if (words < site.minWords) throw IllegalStateException("مقال قصير ($words كلمة)")

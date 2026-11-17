@@ -65,6 +65,7 @@ class HomeViewModel @Inject constructor(
     private val runner: JobRunner, private val bus: RunBus, private val engine: ProviderEngine,
     private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, val sites: com.sajed.articlestudio.engine.SiteStore, arts: ArticleDao, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
+    private val customBy = HashMap<String, String>()
     private val inputs = MutableStateFlow(Triple(10, PlanMode.News, "") to "")
     private val _ui = MutableStateFlow(HomeUiState())
     val ui: StateFlow<HomeUiState> = _ui.asStateFlow()
@@ -76,7 +77,7 @@ class HomeViewModel @Inject constructor(
     init {
         updater.check(auto = true)
         viewModelScope.launch { arts.observeRows().collect { articles = it } }
-        viewModelScope.launch { sites.activeId.collect { runCatching { blog.refresh(sites.active().url) } } }
+        viewModelScope.launch { sites.activeId.collect { id -> inputs.update { (a, b) -> a.copy(third = customBy[id].orEmpty()) to b }; runCatching { blog.refresh(sites.active().url) } } }
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
             while (true) {
                 // لا نحدّث بسرعة إلا والشاشة ظاهرة، لتبقى بقية التطبيق سلسة
@@ -122,7 +123,7 @@ class HomeViewModel @Inject constructor(
 
     fun setTotal(n: Int) = inputs.update { (a, b) -> a.copy(first = n) to b }
     fun setMode(m: PlanMode) = inputs.update { (a, b) -> a.copy(second = m) to b }
-    fun setCustom(t: String) = inputs.update { (a, b) -> a.copy(third = t.take(4000)) to b }
+    fun setCustom(t: String) { customBy[sites.activeId.value] = t.take(4000); inputs.update { (a, b) -> a.copy(third = t.take(4000)) to b } }
 
     /** يبدأ أو يستأنف أو يوقف؛ يعيد true إذا بدأ عملاً يحتاج الخدمة الأمامية. */
     fun go() {

@@ -90,7 +90,7 @@ ${words(40)}
     @After fun tearDown() = server.shutdown()
 
     @Test fun twoStagePipelineAssemblesAValidArticle() = runBlocking {
-        val a = gen.article(SiteConfig("default", "سبورت لايف 24", "https://sport1live24.blogspot.com", niche = "sport"), Topic("الكلاسيكو", labels = listOf("أخبار"), ref = Ref("خبر", "https://espn.com/x", "تفصيل", 1_700_000_000_000)))
+        val a = gen.article(SiteConfig("default", "سبورت لايف 24", "https://sport1live24.blogspot.com", niche = "sport"), Topic("الكلاسيكو", labels = listOf("أخبار"), ref = Ref("خبر", "https://espn.com/x", "انتهت المباراة بـ12 هدفاً في موسم 2024", 1_700_000_000_000)))
         assertEquals("duel", a.motif)
         assertEquals(200, a.hue)
         assertEquals(4, a.facts.size)
