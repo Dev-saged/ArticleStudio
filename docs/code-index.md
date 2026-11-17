@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 105 ملفاً · 10044 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · HomeScreen.kt 246 · Publish.kt 237
+> 105 ملفاً · 10090 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 448 · Export.kt 338 · ImageRenderer.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · HomeScreen.kt 246 · Publish.kt 237
 
 ### ./
 - CLAUDE.md (44)
@@ -35,7 +35,7 @@
 - BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (114): ArticleRow, ArticleDao, JobDao, Migrations, AppDb
+- Db.kt (117): ArticleRow, ArticleDao, JobDao, Migrations, AppDb
 - Entities.kt (43): ArticleEntity, JobEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
@@ -47,11 +47,11 @@
 - AutoPipeline.kt (54): interface, AutoPipeline, PipelineModule
 - AutoRun.kt (95): AutoPlan, AutoRunner, AutoScheduler, AutoEntry, AutoWorker
 - BlogIndex.kt (81): BlogPost, BlogIndex
-- ExportManager.kt (219): ExportSummary, ExportFile, ExportUi, ExportManager
+- ExportManager.kt (232): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (102): GenerationService
 - Generator.kt (249): PlanMode, OffTopicException, Generator
-- GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
+- GitHubClient.kt (124): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
 - Guards.kt (82): NicheGuard, FactGuard, toneGuide
 - ImageEngine.kt (206): ImgReq, ImgHit, ImgStat, ImageEngine
@@ -92,7 +92,7 @@
 - AppNav.kt (137): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
 - Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
-- Export.kt (326): ExportViewModel, ExportScreen, pubModeLabel
+- Export.kt (338): ExportViewModel, ExportScreen, pubModeLabel
 - Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (448): SiteStats, SiteForms, SitesViewModel, SitesScreen
@@ -124,7 +124,7 @@
 - GeneratorTest.kt (106): GeneratorTest
 - GuardsTest.kt (52): GuardsTest
 - ImageEngineTest.kt (138): ImageEngineTest
-- JobRunnerTest.kt (141): JobRunnerTest
+- JobRunnerTest.kt (148): JobRunnerTest
 - MotifTest.kt (22): MotifTest
 - PhotoServiceTest.kt (99): PhotoServiceTest
 - ProviderHttpTest.kt (100): ProviderHttpTest
