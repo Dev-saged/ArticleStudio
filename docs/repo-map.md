@@ -35,6 +35,6 @@
 
 ## Open issues
 - لم يُجرَّب حياً: Together/Cloudflare/Pexels/Pixabay/GitHub Models (مُختبرة بـMockWebServer فقط).
-- المؤقت: WorkManager ساعة كحد أدنى وقد يتأخر مع Doze. لم يُجرَّب على جهاز.
-- لم يُجرَّب: سلوك `published` المستقبلي في الجدولة، وبقاء <script> JSON-LD في المحتوى.
+- المؤقت: WorkManager ساعة كحد أدنى؛ لم يُجرَّب على جهاز.
+- لم يُجرَّب: `published` المستقبلي في الجدولة، و<script> JSON-LD.
 - لم يُجرَّب: جهاز، مزودات حقيقية، Gemini للصور (مسار غير مُتحقَّق).
