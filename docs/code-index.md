@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 98 ملفاً · 9230 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 292 · ProviderEngine.kt 289 · Providers.kt 264 · Generator.kt 238 · Publish.kt 237 · HomeScreen.kt 215
+> 103 ملفاً · 9722 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 448 · Export.kt 326 · ImageRenderer.kt 322 · ProviderEngine.kt 289 · Providers.kt 264 · Generator.kt 249 · HomeScreen.kt 246 · Publish.kt 237
 
 ### ./
 - CLAUDE.md (44)
@@ -47,22 +47,25 @@
 - AutoPipeline.kt (54): interface, AutoPipeline, PipelineModule
 - AutoRun.kt (95): AutoPlan, AutoRunner, AutoScheduler, AutoEntry, AutoWorker
 - BlogIndex.kt (81): BlogPost, BlogIndex
-- ExportManager.kt (211): ExportSummary, ExportFile, ExportUi, ExportManager
+- ExportManager.kt (219): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (102): GenerationService
-- Generator.kt (238): PlanMode, Generator
+- Generator.kt (249): PlanMode, OffTopicException, Generator
 - GitHubClient.kt (113): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
-- ImageRenderer.kt (292): RenderedImages, ImageRenderer
-- JobRunner.kt (171): JobUi, JobRunner
+- Guards.kt (82): NicheGuard, FactGuard, toneGuide
+- ImageRenderer.kt (322): RenderedImages, ImageRenderer
+- JobRunner.kt (174): JobUi, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
+- PhotoService.kt (140): PhotoPrompt, PhotoService
 - ProviderEngine.kt (289): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
 - PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
 - Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
-- Site.kt (180): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- Site.kt (181): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- SiteIndex.kt (36): IndexItem, SiteIndexDoc, SiteIndex
 - SiteProfiler.kt (130): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (131): hsl, SvgDraw
@@ -79,8 +82,8 @@
 - Prefs.kt (33): UiPrefs, LiveStatus
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (215): HomeScreen
-- HomeViewModel.kt (138): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
+- HomeScreen.kt (246): HomeScreen
+- HomeViewModel.kt (139): NodeState, NodeUi, BallPass, RowUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
 - Icons.kt (55): Icons
@@ -118,8 +121,10 @@
 - EngineTest.kt (83): EngineTest
 - Fixtures.kt (14): sampleArticle
 - GeneratorTest.kt (106): GeneratorTest
+- GuardsTest.kt (52): GuardsTest
 - JobRunnerTest.kt (141): JobRunnerTest
 - MotifTest.kt (22): MotifTest
+- PhotoServiceTest.kt (98): PhotoServiceTest
 - ProviderHttpTest.kt (100): ProviderHttpTest
 - PublishTest.kt (112): PublishTest
 - RenderTest.kt (58): RenderTest
@@ -128,7 +133,7 @@
 - V3Test.kt (114): V3Test
 ### docs/
 - publishing.md (20)
-- repo-map.md (43)
+- repo-map.md (42)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 <!-- repomap:auto:end -->
