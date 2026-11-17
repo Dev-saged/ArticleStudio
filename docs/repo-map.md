@@ -6,9 +6,8 @@
 - الهوية والألوان → `BrandConfig.kt` → `BrandConfig`
 - الثيم، المكونات، الحركة، الأيقونات → `ui/theme/*`، `ui/Components.kt`، `ui/Motion.kt`، `ui/icons/Icons.kt`
 - الحرّاس → `engine/Guards.kt` (`NicheGuard` مجال، `FactGuard` أرقام/اقتباسات، `toneGuide`)؛ الصور الواقعية → `engine/PhotoService.kt` فوق `engine/ImageEngine.kt` (سلسلة: Gemini، Together، Cloudflare، Pollinations، Pexels، Pixabay؛ تجميد وإحصاءات؛ احتياط SVG)؛ فهرس الموقع → `engine/SiteIndex.kt`
-- المخططات → `schema/*`؛ الصور → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ الشاشات → `ui/screens/*`
+- المخططات → `schema/*`؛ الرسم → `engine/ImageRenderer.kt`؛ التحديث → `engine/Updater.kt`؛ الشاشات → `ui/screens/*`
 - الرئيسية → `ui/home/*` → `HomeViewModel`، `PitchBoard`
-- التنقل، `EdgeBar` → `ui/nav/AppNav.kt`
 - المواقع المتعددة: النماذج الجاهزة، المخزن، القواعد → `engine/Site.kt` → `SiteConfig`، `Niches`، `SiteStore`، `SiteRules`
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
 - المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
@@ -24,11 +23,10 @@
 
 ## Solved bugs (never reintroduce)
 - `SchemaRules.sanitize` كان يقص المسافات أثناء الكتابة؛ في الحقول استعمل `trim = false`.
-- تداخل الواجهة مع الأشرطة: استعمل `EdgeBar`.
+- تداخل الواجهة مع الأشرطة: استعمل `EdgeBar` (`ui/nav/AppNav.kt`).
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
 - مقالات فاشلة كانت بلا `siteId` فتظهر في سبورت لايف؛ كل `ArticleEntity(` يجب أن يحمل `siteId`، و`start` بلا افتراضي.
 - أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
-- 7 رموز (bulb، heart…) كانت تسقط لأن `stroke="url(#gf)"` لم يُدعم؛ `MotifTest` يغطي كل الرموز.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
 - مراحل التصدير: 4 دون نشر، 6 معه (`ExportManager.publishStages`: تأكيد الصور بـ HEAD على غلاف الأول والأخير ثم النشر)؛ `retryPublish` يكمل المتوقف.
