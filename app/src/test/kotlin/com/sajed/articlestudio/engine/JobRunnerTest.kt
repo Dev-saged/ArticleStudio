@@ -99,7 +99,7 @@ ${words(30)}
     }
 
     @Test fun jobGeneratesAndPersistsEveryArticle() = runBlocking {
-        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل")
+        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل", "default")
         await(2)
         assertEquals(2, db.articles().countByStatus("ready"))
         val j = db.jobs().latest()!!
@@ -109,7 +109,7 @@ ${words(30)}
     }
 
     @Test fun finishedJobRunsAutoPipelineOnceAndReportsResult() = runBlocking {
-        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل")
+        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل", "default")
         await(2)
         val t0 = System.currentTimeMillis()
         while (runner.state.value.result.isEmpty() && System.currentTimeMillis() - t0 < 5_000) Thread.sleep(50)
@@ -129,7 +129,7 @@ ${words(30)}
 
     @Test fun duplicateTopicIsExcludedWithoutFailureOrModelCall() = runBlocking {
         db.articles().upsert(com.sajed.articlestudio.data.ArticleEntity(jobId = 0, idx = 0, title = "موضوع أول عن الكلاسيكو الكبير", slug = "old", status = "exported", updatedAt = 1, siteId = "default"))
-        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل")
+        runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل", "default")
         await(2)
         val s = runner.state.value
         assertEquals(1, s.dup); assertEquals(0, s.failed); assertEquals(1, s.done)

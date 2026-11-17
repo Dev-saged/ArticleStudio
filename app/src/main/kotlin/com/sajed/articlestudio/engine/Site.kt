@@ -86,6 +86,7 @@ data class SiteConfig(
     val pubState: String = "draft",
     val googleAccount: String = "",
     val autoExport: Boolean = true,
+    val photos: Boolean = true,
     val autoEvery: Int = 0,
     val autoCount: Int = 3,
     val autoFrom: Int = 0,

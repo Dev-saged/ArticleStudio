@@ -133,7 +133,7 @@ object SiteForms {
         "keywords" to s.keywords.joinToString("، "), "avoid" to s.avoid, "rules" to s.rules,
         "feeds" to s.feeds.joinToString("\n"), "labels" to s.labels.joinToString("، "),
         "count" to s.count.toString(), "schedule" to s.schedule.toString(), "repo" to s.repo, "branch" to s.branch,
-        "autoExport" to s.autoExport.toString(), "autoEvery" to s.autoEvery.toString(), "autoCount" to s.autoCount.toString(),
+        "autoExport" to s.autoExport.toString(), "photos" to s.photos.toString(), "autoEvery" to s.autoEvery.toString(), "autoCount" to s.autoCount.toString(),
         "autoFrom" to s.autoFrom.toString(), "autoTo" to s.autoTo.toString(),
         "faq" to s.faq.toString(), "tables" to s.tables.toString(), "sources" to s.sources.toString(),
     )
@@ -150,7 +150,7 @@ object SiteForms {
             feeds = v["feeds"].orEmpty().split('\n', ' ', '\t').map { it.trim() }.filter { it.isNotEmpty() },
             labels = list(v["labels"].orEmpty()), count = v["count"]?.toIntOrNull() ?: base.count, schedule = v["schedule"]?.toIntOrNull() ?: base.schedule,
             repo = v["repo"].orEmpty().trim(), branch = v["branch"].orEmpty().trim(),
-            autoExport = v["autoExport"] == "true", autoEvery = v["autoEvery"]?.toIntOrNull() ?: base.autoEvery, autoCount = v["autoCount"]?.toIntOrNull() ?: base.autoCount,
+            autoExport = v["autoExport"] == "true", photos = v["photos"] != "false", autoEvery = v["autoEvery"]?.toIntOrNull() ?: base.autoEvery, autoCount = v["autoCount"]?.toIntOrNull() ?: base.autoCount,
             autoFrom = v["autoFrom"]?.toIntOrNull() ?: base.autoFrom, autoTo = v["autoTo"]?.toIntOrNull() ?: base.autoTo,
             faq = v["faq"] == "true", tables = v["tables"] == "true", sources = v["sources"] == "true",
         )
@@ -355,7 +355,7 @@ private fun SiteEditor(site: SiteConfig, isNew: Boolean, vm: SitesViewModel, onC
         (analysis as? SitesViewModel.Analysis.Done)?.let { d ->
             val merged = d.profile.applyTo(SiteForms.build(site, values))
             val nv = SiteForms.values(merged)
-            values = nv + mapOf("url" to values["url"].orEmpty(), "autoExport" to values["autoExport"].orEmpty(), "autoEvery" to values["autoEvery"].orEmpty(),
+            values = nv + mapOf("url" to values["url"].orEmpty(), "autoExport" to values["autoExport"].orEmpty(), "photos" to values["photos"].orEmpty(), "autoEvery" to values["autoEvery"].orEmpty(),
                 "autoCount" to values["autoCount"].orEmpty(), "autoFrom" to values["autoFrom"].orEmpty(), "autoTo" to values["autoTo"].orEmpty(), "repo" to values["repo"].orEmpty(), "branch" to values["branch"].orEmpty())
             analyzed = true; errors = emptyMap()
         }
@@ -426,7 +426,7 @@ private fun SiteEditor(site: SiteConfig, isNew: Boolean, vm: SitesViewModel, onC
                                 WINDOWS.forEach { (w, l) -> AppChip(l, built.autoFrom == w.first && built.autoTo == w.second, { set("autoFrom", w.first.toString()); set("autoTo", w.second.toString()) }) }
                             }
                         }
-                        SchemaForm(ModuleSchema("auto", "", listOf(Field("autoExport", "بعد كل توليد: تصدير ورفع صور ونشر تلقائي", FieldType.Toggle)), emptyList()), values, errors) { k, v -> set(k, v) }
+                        SchemaForm(ModuleSchema("auto", "", listOf(Field("autoExport", "بعد كل توليد: تصدير ورفع صور ونشر تلقائي", FieldType.Toggle), Field("photos", "غلاف بصورة واقعية بالذكاء الاصطناعي (احتياطه رسم تلقائي)", FieldType.Toggle)), emptyList()), values, errors) { k, v -> set(k, v) }
                     }
                 }
             }

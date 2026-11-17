@@ -101,11 +101,42 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
                 IconBtn(if (isDark) Icons.Sun else Icons.Moon, "تبديل الوضع الفاتح والغامق", onToggleTheme)
             }
         }
-        if (s.siteCount > 1) item("sites") {
+        item("sites") {
             val list by vm.sites.sites.collectAsStateWithLifecycle()
             val act by vm.sites.activeId.collectAsStateWithLifecycle()
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                list.forEach { x -> AppChip(x.name, x.id == act, { if (!s.running) vm.sites.setActive(x.id) }) }
+            val cur = list.firstOrNull { it.id == act }
+            var pick by remember { mutableStateOf(false) }
+            if (cur != null) {
+                Panel(Modifier.fillMaxWidth().clickable(enabled = list.size > 1 && !s.running) { pick = true }) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(c.gold), contentAlignment = Alignment.Center) {
+                            Text(cur.name.trim().firstOrNull { it.isLetterOrDigit() }?.toString() ?: "•", style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color(0xFF1B1204))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("الموقع النشط", style = MaterialTheme.typography.labelMedium, color = c.muted)
+                            Text(cur.name, style = MaterialTheme.typography.titleMedium, color = c.text)
+                            Text("${cur.topicLabel} · ${cur.host}".replace(Regex("[A-Za-z0-9.\\-]+")) { "\u2066" + it.value + "\u2069" }, style = MaterialTheme.typography.bodySmall, color = c.muted)
+                        }
+                        if (list.size > 1) Text(if (s.running) "مقفل أثناء التوليد" else "تبديل", style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                    }
+                }
+            }
+            if (pick) ModalBottomSheet(onDismissRequest = { pick = false }, containerColor = c.bg2) {
+                Column(Modifier.padding(horizontal = 18.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("اختر الموقع", style = MaterialTheme.typography.titleLarge, color = c.text)
+                    Text("كل موقع له مقالاته وفهرسه ومجلد تصديره المستقل.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    list.forEach { x ->
+                        Panel(Modifier.fillMaxWidth().clickable { vm.sites.setActive(x.id); pick = false }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(x.name, style = MaterialTheme.typography.titleMedium, color = if (x.id == act) c.goldText else c.text)
+                                    Text(x.topicLabel, style = MaterialTheme.typography.bodySmall, color = c.muted)
+                                }
+                                if (x.id == act) Text("نشط", style = MaterialTheme.typography.labelLarge, color = c.goldText)
+                            }
+                        }
+                    }
+                }
             }
         }
         item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }

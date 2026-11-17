@@ -38,9 +38,9 @@ class ExportUi(
 
 @Singleton
 class ExportManager @Inject constructor(
-    @ApplicationContext private val ctx: Context, private val arts: ArticleDao, private val renderer: ImageRenderer,
+    @ApplicationContext private val ctx: Context, private val arts: ArticleDao, private val renderer: ImageRenderer, private val photos: PhotoService,
     private val gh: GitHubClient, private val cfg: GitHubSettings, private val history: HistoryStore, private val blog: BlogIndex,
-    private val sites: SiteStore, private val publisher: PublishManager, private val http: okhttp3.OkHttpClient,
+    private val sites: SiteStore, private val publisher: PublishManager, private val http: okhttp3.OkHttpClient, private val bus: RunBus,
 ) {
     private val dir get() = File(ctx.filesDir, "exports").apply { mkdirs() }
     private val _ui = MutableStateFlow(ExportUi())
@@ -150,8 +150,10 @@ class ExportManager @Inject constructor(
             val folder = "Download/ArticleStudio/" + site.name.replace(Regex("[\\\\/:*?\"<>|]"), "-") + "/" + name.removeSuffix(".xml")
             val files = ArrayList<ImageFile>()
             list.forEachIndexed { i, a ->
-                stage("رسم الصور", 2, count, i, list.size)
-                val im = renderer.render(a, site); files += ImageFile("${a.finalSlug}-cover.jpg", im.cover); files += ImageFile("${a.finalSlug}-info.jpg", im.info)
+                stage(if (site.photos) "توليد الصور" else "رسم الصور", 2, count, i, list.size)
+                val photo = if (site.photos) runCatching { photos.fetch(site, a) }.getOrNull() else null
+                if (site.photos && photo == null) bus.log("تعذّرت الصورة الواقعية لـ«${clamp(a.title, 30)}»، رسم تلقائي بدلاً منها", "w")
+                val im = renderer.render(a, site, photo); photo?.recycle(); files += ImageFile("${a.finalSlug}-cover.jpg", im.cover); files += ImageFile("${a.finalSlug}-info.jpg", im.info)
             }
             val base: String
             if (auto) base = gh.pushImages(files, repoOf(site), branchOf(site)) { t, i, n -> stage(t, 3, count, i, n) }
@@ -167,6 +169,12 @@ class ExportManager @Inject constructor(
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
             File(dir, name).writeText(xml)
             saveDownload(name, "text/xml", xml.toByteArray(), folder)
+            runCatching {
+                val day = LocalDate.now().toString()
+                val items = SiteIndex.items(list, name.removeSuffix(".xml"), day)
+                saveDownload("index.json", "application/json", SiteIndex.encode(SiteIndex.doc(site, items, day)).toByteArray(), folder)
+                SiteIndex.merge(File(ctx.filesDir, "index"), site, items, day)
+            }
             arts.markExported(rows.map { it.id }, System.currentTimeMillis())
             val pubEntries = if (publisher.enabled(site) && auto) runCatching { XmlImport.parse(xml) }.getOrDefault(emptyList()).let { items -> items.mapIndexed { i, it -> PublishEntry(it, rows.getOrNull(i)?.takeIf { items.size == rows.size }?.id) } } else emptyList()
             history.add(list.map { it.finalSlug }, list.map { it.topic }, list.flatMap { a -> a.sources.map { it.url } }, site.id)

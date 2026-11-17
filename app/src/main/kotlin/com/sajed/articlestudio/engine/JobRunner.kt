@@ -55,7 +55,7 @@ class JobRunner @Inject constructor(
         scope.launch { if (jobs.latest()?.state == "running" && !isRunning()) resume() }
     }
 
-    fun start(n: Int, mode: PlanMode, custom: String, siteId: String = "default") {
+    fun start(n: Int, mode: PlanMode, custom: String, siteId: String) {
         if (isRunning()) return
         run = scope.launch {
             val id = jobs.upsert(JobEntity(total = n, state = "running", createdAt = System.currentTimeMillis(), mode = mode.name, custom = custom, siteId = siteId))
@@ -108,6 +108,9 @@ class JobRunner @Inject constructor(
                 val n = blog.refresh(site.url)
                 if (n > 0) bus.log("فهرس المدونة: $n مقالاً منشوراً سيُتجنَّب تكراره") else bus.log("تعذّر قراءة مقالات المدونة، سيُعتمد على السجل المحلي", "w")
                 topics = gen.plan(site, job.total, PlanMode.valueOf(job.mode), job.custom, blog.titles(site.url) + arts.titlesFor(site.id))
+                val onNiche = topics.filter { t -> NicheGuard.foreignTopic(site, t.topic).also { f -> if (f != null) bus.log("استُبعد موضوع خارج مجال الموقع (يبدو $f): ${clamp(t.topic, 36)}", "i") } == null }
+                if (onNiche.isEmpty()) throw IllegalStateException("كل المواضيع المقترحة خارج مجال «${site.topicLabel}»")
+                topics = onNiche
                 job = job.copy(topics = AppJson.encodeToString(topicsSer, topics), total = topics.size, next = 0)
                 jobs.upsert(job)
                 bus.log("الخطة جاهزة: ${topics.size} مواضيع", "o")
@@ -138,7 +141,7 @@ class JobRunner @Inject constructor(
                     }
                 } catch (e: CancellationException) { throw e } catch (e: Exception) {
                     bus.log("فشل الموضوع: " + clamp(e.message, 70), "e")
-                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = t.topic, slug = "", status = "failed", error = clamp(e.message, 120), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Topic.serializer(), t)))
+                    arts.upsert(ArticleEntity(jobId = job.id, idx = job.next, title = t.topic, slug = "", status = "failed", error = clamp(e.message, 120), updatedAt = System.currentTimeMillis(), data = AppJson.encodeToString(Topic.serializer(), t), siteId = site.id))
                 }
                 job = job.copy(next = job.next + 1, done = job.done + if (ok) 1 else 0, failed = job.failed + if (ok || isDup) 0 else 1)
                 jobs.upsert(job)

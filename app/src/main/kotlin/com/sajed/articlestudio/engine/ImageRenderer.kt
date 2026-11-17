@@ -29,19 +29,19 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
     private val gold = SvgDraw.GOLD
     private val goldB = hsl(34f, 0.92f, 0.52f)
 
-    fun render(a: Article, site: SiteConfig? = null): RenderedImages {
+    fun render(a: Article, site: SiteConfig? = null, photo: Bitmap? = null): RenderedImages {
         val bmp = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        cover(c, a, plan(a, site))
+        cover(c, a, plan(a, site), photo)
         val cover = jpeg(bmp)
-        card(c, a, plan(a, site))
+        card(c, a, plan(a, site), photo)
         val info = jpeg(bmp)
         bmp.recycle()
         return RenderedImages(cover, info)
     }
 
-    fun coverBitmap(a: Article, site: SiteConfig? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { cover(Canvas(it), a, plan(a, site)) }
-    fun cardBitmap(a: Article, site: SiteConfig? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { card(Canvas(it), a, plan(a, site)) }
+    fun coverBitmap(a: Article, site: SiteConfig? = null, photo: Bitmap? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { cover(Canvas(it), a, plan(a, site), photo) }
+    fun cardBitmap(a: Article, site: SiteConfig? = null, photo: Bitmap? = null): Bitmap = Bitmap.createBitmap(1200, 630, Bitmap.Config.ARGB_8888).also { card(Canvas(it), a, plan(a, site), photo) }
 
     /** خطة تصميم ثابتة لكل مقالة: النمط والتخطيط واللون يُشتقّان من عنوانها ومجال الموقع فتتنوع الصور بلا عشوائية. */
     private class Plan(val name: String, val domain: String, val hue: Float, val accent: Int, val glow: Int, val style: String, val layout: Int, val angle: Float)
@@ -217,7 +217,34 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         c.drawRoundRect(RectF(rightX - 120f, bar, rightX, bar + 7f), 4f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = LinearGradient(rightX - 120f, 0f, rightX, 0f, goldB, gold, Shader.TileMode.CLAMP) })
     }
 
-    private fun cover(c: Canvas, a: Article, p: Plan) {
+    /** قصّ مركزي للصورة لتملأ 1200×630. */
+    private fun drawCrop(c: Canvas, ph: Bitmap, blur: Boolean = false) {
+        val tr = 1200f / 630f; val sr = ph.width.toFloat() / ph.height
+        val src = if (sr > tr) { val w = (ph.height * tr).toInt(); android.graphics.Rect((ph.width - w) / 2, 0, (ph.width + w) / 2, ph.height) }
+        else { val h = (ph.width / tr).toInt(); android.graphics.Rect(0, (ph.height - h) / 2, ph.width, (ph.height + h) / 2) }
+        val dst = RectF(0f, 0f, 1200f, 630f)
+        if (!blur) { c.drawBitmap(ph, src, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)); return }
+        val small = Bitmap.createBitmap(48, 25, Bitmap.Config.ARGB_8888)
+        Canvas(small).drawBitmap(ph, src, RectF(0f, 0f, 48f, 25f), Paint(Paint.FILTER_BITMAP_FLAG))
+        c.drawBitmap(small, null, dst, Paint(Paint.FILTER_BITMAP_FLAG)); small.recycle()
+    }
+
+    /** الغلاف الفوتوغرافي: صورة كاملة، تدرّج داكن، عنوان في الأسفل، ثم لوحة القناة. */
+    private fun photoCover(c: Canvas, a: Article, p: Plan, ph: Bitmap) {
+        drawCrop(c, ph)
+        c.drawRect(0f, 0f, 1200f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 0f, 630f, Color.argb(46, 0, 0, 0), Color.argb(0, 0, 0, 0), Shader.TileMode.CLAMP) })
+        c.drawRect(0f, 120f, 1200f, 530f, Paint().apply { shader = LinearGradient(0f, 120f, 0f, 530f, intArrayOf(Color.argb(0, 3, 6, 14), Color.argb(150, 3, 6, 14), Color.argb(242, 3, 6, 14)), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP) })
+        c.drawRect(0f, 0f, 1200f, 630f, Paint().apply { shader = RadialGradient(600f, 300f, 820f, Color.TRANSPARENT, Color.argb(90, 0, 0, 0), Shader.TileMode.CLAMP) })
+        val (fs, lines) = fitTitle(iso(a.title), 1010f, 300f, 66f)
+        val blockH = fs * (0.45f + lines.size * 1.36f) + 21f
+        val top = 508f - blockH
+        val gp = Plan(p.name, p.domain, p.hue, gold, p.glow, p.style, p.layout, p.angle)
+        kicker(c, iso(a.kicker), 1130f, top - 72f, gp)
+        titleBlock(c, iso(a.title), 1130f, top, 1010f, 300f, 66f, gp)
+    }
+
+    private fun cover(c: Canvas, a: Article, p: Plan, photo: Bitmap? = null) {
+        if (photo != null) { photoCover(c, a, p, photo); channelPlate(c, p); return }
         background(c, p, 528f)
         val title = iso(a.title)
         when (p.layout) {
@@ -254,8 +281,11 @@ class ImageRenderer @Inject constructor(@ApplicationContext private val ctx: Con
         channelPlate(c, p)
     }
 
-    private fun card(c: Canvas, a: Article, p: Plan) {
-        background(c, p, 528f)
+    private fun card(c: Canvas, a: Article, p: Plan, photo: Bitmap? = null) {
+        if (photo != null) {
+            drawCrop(c, photo, blur = true)
+            c.drawRect(0f, 0f, 1200f, 630f, Paint().apply { shader = LinearGradient(0f, 0f, 0f, 630f, Color.argb(205, 3, 8, 18), Color.argb(238, 2, 4, 10), Shader.TileMode.CLAMP) })
+        } else background(c, p, 528f)
         val kh = kicker(c, iso(a.kicker), 1130f, 38f, p)
         val hp = paint(heavy, 46f).apply { setShadowLayer(16f, 0f, 3f, Color.argb(120, 0, 0, 0)) }
         textR(c, iso(a.infotitle), 1130f - 0f, 38f + kh + 46f, hp, true)
