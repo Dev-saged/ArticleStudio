@@ -120,6 +120,19 @@ class ExportManager @Inject constructor(
         runPublish(siteId, items.map { PublishEntry(it) })
     }
 
+    /** ينشر المقالات المصدّرة التي لم تُنشر (توقفت بسبب مهلة أو ربط) من ملفات XML المحفوظة. */
+    suspend fun publishPending(siteId: String) = withContext(Dispatchers.Default) {
+        val site = sites.get(siteId)
+        if (!publisher.enabled(site)) { _pub.value = PubUi(report = PublishReport(fatal = "النشر المباشر غير مفعّل لهذا الموقع"), siteId = siteId); return@withContext }
+        val rows = arts.unpublished(site.id).associateBy { it.title }
+        val seen = HashSet<String>(); val entries = ArrayList<PublishEntry>()
+        (dir.listFiles() ?: emptyArray()).filter { it.extension == "xml" }.sortedByDescending { it.lastModified() }.forEach { f ->
+            runCatching { XmlImport.parse(f.readText()) }.getOrNull()?.forEach { it -> val r = rows[it.title]; if (r != null && seen.add(it.title)) entries += PublishEntry(it, r.id) }
+        }
+        if (entries.isEmpty()) { _pub.value = PubUi(report = PublishReport(fatal = "لا ملف XML محفوظ يحوي المقالات المتوقفة"), siteId = siteId); return@withContext }
+        runPublish(siteId, entries)
+    }
+
     fun clearPub() { _pub.value = PubUi(); pending = null }
 
     fun refreshFiles() {

@@ -21,7 +21,7 @@ object DataModule {
         Room.databaseBuilder(c, AppDb::class.java, "studio.db").addMigrations(*Migrations.ALL).build()
 
     @Provides @Singleton
-    fun http(): OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).build()
+    fun http(): OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).writeTimeout(90, TimeUnit.SECONDS).build()
 
     @Provides fun articleDao(db: AppDb) = db.articles()
     @Provides fun jobDao(db: AppDb) = db.jobs()

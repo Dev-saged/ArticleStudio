@@ -39,6 +39,9 @@ interface ArticleDao {
     @Query("UPDATE articles SET remote_url = :url WHERE id = :id")
     suspend fun setRemote(id: Long, url: String)
 
+    @Query("SELECT * FROM articles WHERE status = 'exported' AND remote_url = '' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
+    suspend fun unpublished(siteId: String): List<ArticleEntity>
+
     @Query("SELECT * FROM articles WHERE site_id = :siteId AND title = :title AND status NOT IN ('failed','duplicate') LIMIT 1")
     suspend fun byTitle(siteId: String, title: String): ArticleEntity?
 

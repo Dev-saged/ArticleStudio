@@ -17,6 +17,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import java.io.IOException
 import java.net.URLEncoder
 import java.util.Base64
 import java.util.concurrent.TimeUnit
@@ -29,14 +32,21 @@ class ImageFile(val name: String, val bytes: ByteArray)
 @Singleton
 class GitHubClient @Inject constructor(private val http: OkHttpClient, private val cfg: GitHubSettings) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val client by lazy { http.newBuilder().callTimeout(60, TimeUnit.SECONDS).build() }
+    private val client by lazy { http.newBuilder().callTimeout(150, TimeUnit.SECONDS).build() }
 
     private suspend fun gh(path: String, method: String = "GET", body: JsonObject? = null, what: String = ""): JsonElement {
         val rq = Request.Builder().url("https://api.github.com$path")
             .header("Accept", "application/vnd.github+json").header("Authorization", "Bearer ${cfg.token}")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .method(method, body?.toString()?.toRequestBody("application/json".toMediaType()) ?: if (method == "GET") null else "".toRequestBody()).build()
-        client.newCall(rq).await().use { r ->
+        var attempt = 0
+        while (true) {
+            val rs = try { client.newCall(rq).await() } catch (e: CancellationException) { throw e } catch (e: IOException) {
+                if (++attempt >= 3) throw GitHubException(0, "تعذّر الاتصال بـGitHub: ${clamp(e.message, 60)}")
+                delay(1500L * attempt); continue
+            }
+            if (rs.code == 429 || rs.code in 500..599) { rs.close(); if (++attempt < 3) { delay(1500L * attempt); continue } else throw GitHubException(rs.code, "GitHub ${rs.code}: الخدمة مشغولة، أعد المحاولة بعد قليل") }
+            return rs.use { r ->
             val txt = r.body?.string().orEmpty()
             if (!r.isSuccessful) {
                 val m = runCatching { json.parseToJsonElement(txt).jsonObject["message"]?.jsonPrimitive?.contentOrNull }.getOrNull().orEmpty()
@@ -48,7 +58,8 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
                 }
                 throw GitHubException(r.code, "GitHub ${r.code}${if (what.isNotEmpty()) " ($what)" else ""}: $hint")
             }
-            return if (txt.isBlank()) JsonNull else json.parseToJsonElement(txt)
+            if (txt.isBlank()) JsonNull else json.parseToJsonElement(txt)
+            }
         }
     }
 
