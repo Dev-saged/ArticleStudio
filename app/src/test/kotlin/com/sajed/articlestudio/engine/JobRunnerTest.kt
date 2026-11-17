@@ -127,6 +127,13 @@ ${words(30)}
         assertEquals(id, db.jobs().latest()!!.id)
     }
 
+    @Test fun unpublishedListsOnlyExportedWithoutRemoteForThatSite() = runBlocking {
+        fun row(t: String, st: String, site: String, url: String = "") = com.sajed.articlestudio.data.ArticleEntity(jobId = 0, idx = 0, title = t, slug = t, status = st, updatedAt = 1, siteId = site, remoteUrl = url)
+        db.articles().upsert(row("أ", "exported", "tech")); db.articles().upsert(row("ب", "exported", "tech", "published"))
+        db.articles().upsert(row("ج", "ready", "tech")); db.articles().upsert(row("د", "exported", "default"))
+        assertEquals(listOf("أ"), db.articles().unpublished("tech").map { it.title })
+    }
+
     @Test fun duplicateTopicIsExcludedWithoutFailureOrModelCall() = runBlocking {
         db.articles().upsert(com.sajed.articlestudio.data.ArticleEntity(jobId = 0, idx = 0, title = "موضوع أول عن الكلاسيكو الكبير", slug = "old", status = "exported", updatedAt = 1, siteId = "default"))
         runner.start(2, PlanMode.Mine, "موضوع أول عن الكلاسيكو\nموضوع ثان عن التسلل", "default")

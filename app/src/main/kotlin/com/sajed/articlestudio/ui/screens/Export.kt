@@ -60,6 +60,7 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
     val pub: StateFlow<ExportManager.PubUi> = mgr.pub
     val pubSite: StateFlow<com.sajed.articlestudio.engine.SiteConfig> = sites.activeId.map { sites.get(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), sites.active())
     val ready: StateFlow<Int> = sites.activeId.flatMapLatest { sid -> dao.observeRows().map { l -> l.count { it.status == "ready" && it.siteId == sid } } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val stuck: StateFlow<Int> = sites.activeId.flatMapLatest { sid -> dao.observeRows().map { l -> l.count { it.status == "exported" && it.remoteUrl.isEmpty() && it.siteId == sid } } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     val siteName: StateFlow<String> = sites.activeId.map { sites.get(it).name }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
     val ui: StateFlow<ExportUi> = mgr.ui
 
@@ -106,6 +107,7 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
     fun dismiss() = mgr.clearResult()
     fun dismissPub() = mgr.clearPub()
     fun retry() { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.retryPublish(); _busy.value = false } }
+    fun publishStuck() { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.publishPending(sites.activeId.value); _busy.value = false } }
     fun publishFile(name: String) { if (!_busy.value) viewModelScope.launch { _busy.value = true; mgr.publishFile(sites.activeId.value, name); _busy.value = false } }
     fun publishUri(c: Context, uri: android.net.Uri) {
         if (_busy.value) return
@@ -135,6 +137,7 @@ class ExportViewModel @Inject constructor(dao: ArticleDao, private val mgr: Expo
 @Composable
 fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
     val ready by vm.ready.collectAsStateWithLifecycle()
+    val stuck by vm.stuck.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
     val form by vm.form.collectAsStateWithLifecycle()
     val errors by vm.errors.collectAsStateWithLifecycle()
@@ -174,6 +177,15 @@ fun ExportScreen(vm: ExportViewModel = hiltViewModel()) {
         }
         if (ready > 0 || ui.running) item("go") {
             PrimaryButton(if (ui.running) "جارٍ التصدير…" else "أكمل التصدير والنشر الآن", Icons.Export, vm::export, enabled = ready > 0 && !ui.running && !busy)
+        }
+        if (stuck > 0 && !ui.running) item("stuck") {
+            Panel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${stuck.toString().ltr()} مقال مصدّر لم يُنشر", style = MaterialTheme.typography.titleMedium, color = c.text)
+                    Text("توقف النشر لعطل مؤقت. يُنشر المتوقف من ملفاتك المحفوظة دون إعادة توليد.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                    PrimaryButton("انشر المتوقف", Icons.Link, vm::publishStuck, enabled = !busy)
+                }
+            }
         }
         if (ui.running) item("prog") {
             val frac = if (ui.total > 0) ui.done.toFloat() / ui.total else 0f
