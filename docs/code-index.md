@@ -4,12 +4,12 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 105 ملفاً · 10251 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> 112 ملفاً · 10818 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
 > الأكبر: Sites.kt 448 · Export.kt 338 · ImageRenderer.kt 322 · HomeScreen.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · Publish.kt 237
 
 ### ./
 - CLAUDE.md (44)
-- README.md (7)
+- README.md (57)
 - build.gradle.kts (9)
 - settings.gradle.kts (10)
 - version.json (5)
@@ -138,4 +138,13 @@
 - repo-map.md (40)
 ### tools/
 - repomap.py (146): files, symbols, build, main
+### tools/media/
+- build_svgs.py (135): hero, control_room, architecture, providers, features, social
+- common.py (104): font_css, svg, t, rect, backdrop, mark, pill +2
+### tools/promo/
+- mux.py (24)
+- render.py (42): html, work
+- scene.html (168)
+- script.json (10)
+- voice.py (34): tts
 <!-- repomap:auto:end -->
