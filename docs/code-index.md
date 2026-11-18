@@ -4,7 +4,7 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 112 ملفاً · 10818 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> 108 ملفاً · 10542 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
 > الأكبر: Sites.kt 448 · Export.kt 338 · ImageRenderer.kt 322 · HomeScreen.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · Publish.kt 237
 
 ### ./
@@ -142,9 +142,5 @@
 - build_svgs.py (135): hero, control_room, architecture, providers, features, social
 - common.py (104): font_css, svg, t, rect, backdrop, mark, pill +2
 ### tools/promo/
-- mux.py (24)
-- render.py (42): html, work
-- scene.html (168)
-- script.json (10)
-- voice.py (34): tts
+- README.md (2)
 <!-- repomap:auto:end -->
