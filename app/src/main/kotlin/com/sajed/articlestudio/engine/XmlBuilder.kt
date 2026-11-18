@@ -74,7 +74,7 @@ object XmlBuilder {
         return bdi(p.joinToString("")) + (if (site?.faq != false) jsonLd(a) else "")
     }
 
-    fun build(list: List<Article>, base: String, scheduleHours: Int, now: Instant = Instant.now(), blog: List<BlogPost> = emptyList(), site: SiteConfig? = null): String {
+    fun build(list: List<Article>, base: String, scheduleHours: Int, now: Instant = Instant.now(), blog: List<BlogPost> = emptyList(), site: SiteConfig? = null, perSlot: Int = 1): String {
         val head = """<?xml version='1.0' encoding='UTF-8'?>
 <feed xmlns='http://www.w3.org/2005/Atom' xmlns:blogger='http://schemas.google.com/blogger/2008' xmlns:gd='http://schemas.google.com/g/2005' xmlns:georss='http://www.georss.org/georss' xmlns:openSearch='http://a9.com/-/spec/opensearchrss/1.0/' xmlns:thr='http://purl.org/syndication/thread/1.0'>
 <id>tag:blogger.com,1999:blog-8100000000000000001.archive</id>
@@ -84,7 +84,7 @@ object XmlBuilder {
 """
         val zone = ZoneId.systemDefault()
         val entries = list.mapIndexed { i, a ->
-            val d = if (scheduleHours <= 0) now.minusSeconds((list.size - i) * 9L * 60) else now.plusSeconds((i + 1) * scheduleHours * 3600L)
+            val d = if (scheduleHours <= 0) now.minusSeconds((list.size - i) * 9L * 60) else now.plusSeconds((i / perSlot.coerceAtLeast(1) + 1) * scheduleHours * 3600L + (i % perSlot.coerceAtLeast(1)) * 300L)
             val ld = d.atZone(zone)
             val ym = "${ld.year}/${pad(ld.monthValue)}"
             val id = "43" + now.toEpochMilli() + pad(i, 3)

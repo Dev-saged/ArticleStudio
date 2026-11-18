@@ -133,4 +133,14 @@ class PublishTest {
         val g = GooglePublisher(http, { "T" }, "https://b.blogspot.com", server.url("/v3").toString().trimEnd('/'))
         assertEquals("LANDED", g.publish(item, PubState.Live).id)
     }
+
+    @Test fun perSlotPublishesGroupsTogetherAtEachInterval() {
+        val l = listOf(sampleArticle("a", "عنوان أول للاختبار"), sampleArticle("b", "عنوان ثانٍ للاختبار"), sampleArticle("c", "عنوان ثالث للاختبار"), sampleArticle("d", "عنوان رابع للاختبار"))
+        val now = Instant.parse("2026-11-15T10:00:00Z")
+        val xml = XmlBuilder.build(l, "https://cdn.example/", 1, now, perSlot = 2)
+        val t = Regex("<published>([^<]+)</published>").findAll(xml).map { Instant.parse(it.groupValues[1]) }.toList()
+        assertEquals(4, t.size)
+        assertEquals(now.plusSeconds(3600), t[0]); assertEquals(now.plusSeconds(3600 + 300), t[1])
+        assertEquals(now.plusSeconds(7200), t[2]); assertEquals(now.plusSeconds(7200 + 300), t[3])
+    }
 }

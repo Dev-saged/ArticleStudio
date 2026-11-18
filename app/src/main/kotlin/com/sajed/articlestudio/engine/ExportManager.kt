@@ -178,7 +178,7 @@ class ExportManager @Inject constructor(
             }
             stage("بناء XML وحفظه", 4, count)
             files.forEach { f -> saveDownload(f.name, "image/jpeg", f.bytes, "$folder/images") }
-            val xml = XmlBuilder.build(list, base, if (site.schedule > 0) site.schedule else cfg.scheduleHours, blog = blog.all(site.url), site = site)
+            val xml = XmlBuilder.build(list, base, if (site.schedule > 0) site.schedule else cfg.scheduleHours, blog = blog.all(site.url), site = site, perSlot = site.perSlot)
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
             File(dir, name).writeText(xml)
             saveDownload(name, "text/xml", xml.toByteArray(), folder)
