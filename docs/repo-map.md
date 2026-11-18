@@ -36,4 +36,4 @@
 
 ## Open issues
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).
-- Media: `tools/{media,promo}` → `docs/media/`؛ مفتاح الصوت من env فقط.
+- Media: `tools/media` (SVG) ؛ الفيديو من sajed-brain/video-identity/film.

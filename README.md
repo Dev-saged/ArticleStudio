@@ -10,7 +10,7 @@
 
 [![شاهد الفيديو التعريفي](docs/media/promo-poster.jpg)](docs/media/promo.mp4)
 
-▶ [الفيديو التعريفي (دقيقة، بصوت عربي)](docs/media/promo.mp4)
+▶ [الفيديو التعريفي (47 ثانية، بصوت عربي)](docs/media/promo.mp4)
 
 </div>
 
@@ -52,5 +52,5 @@ Kotlin · Jetpack Compose · Hilt + KSP · Room (ترحيلات مرقّمة) ·
 ## بنية المستودع
 - `app/` تطبيق Android · `docs/` الخريطة وملاحظات الإصدارات والوسائط
 - `tools/media/` يولّد صور SVG: `python3 build_svgs.py`
-- `tools/promo/` الفيديو: `render.py` (إطارات) ثم `voice.py` (صوت Gemini TTS من متغير `GEMINI_API_KEY`) ثم `mux.py`
+- الفيديو التعريفي: يُبنى في مستودع `sajed-brain` (`video-identity/film`)
 - القواعد في `CLAUDE.md` والخريطة في `docs/repo-map.md`
