@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 108 ملفاً · 10542 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 448 · Export.kt 338 · ImageRenderer.kt 322 · HomeScreen.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Generator.kt 249 · Publish.kt 237
+> 115 ملفاً · 11751 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: Sites.kt 449 · HomeScreen.kt 341 · Export.kt 338 · 5.json 322 · ImageRenderer.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Insights.kt 262
 
 ### ./
 - CLAUDE.md (44)
@@ -26,6 +26,7 @@
 - 2.json (181)
 - 3.json (202)
 - 4.json (209)
+- 5.json (322)
 ### app/src/main/
 - AndroidManifest.xml (41)
 ### app/src/main/assets/
@@ -35,39 +36,42 @@
 - BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (123): ArticleRow, ArticleDao, JobDao, Migrations, AppDb
-- Entities.kt (43): ArticleEntity, JobEntity
+- Db.kt (157): ArticleRow, ArticleDao, ReviewDao, JobDao, Migrations, AppDb
+- Entities.kt (64): ArticleEntity, JobEntity, ReviewEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (66): SecretException, SecretStore
-- Stores.kt (72): Health, HealthStore, History, HistoryStore, GitHubSettings
+- Stores.kt (81): GenSettings, Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
-- Modules.kt (29): DataModule
+- Modules.kt (30): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
 - AutoPipeline.kt (54): interface, AutoPipeline, PipelineModule
 - AutoRun.kt (95): AutoPlan, AutoRunner, AutoScheduler, AutoEntry, AutoWorker
+- Backup.kt (80): BackupFile, ReviewBackup, BackupManager
 - BlogIndex.kt (81): BlogPost, BlogIndex
 - ExportManager.kt (232): ExportSummary, ExportFile, ExportUi, ExportManager
 - ExportNaming.kt (28): ExportNaming
 - GenerationService.kt (103): GenerationService
 - Generator.kt (249): PlanMode, OffTopicException, Generator
-- GitHubClient.kt (124): GitHubException, ImageFile, GitHubClient
+- GitHubClient.kt (156): GitHubException, ImageFile, GitHubClient
 - GoogleAuth.kt (53): GoogleAuth
 - Guards.kt (82): NicheGuard, FactGuard, toneGuide
 - ImageEngine.kt (206): ImgReq, ImgHit, ImgStat, ImageEngine
 - ImageRenderer.kt (322): RenderedImages, ImageRenderer
-- JobRunner.kt (212): JobUi, SiteSlot, JobRunner
+- JobRunner.kt (228): JobUi, SiteSlot, Gate, JobRunner
 - Models.kt (37): Ref, Topic, Fact, Section, Faq, Article
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
 - PhotoService.kt (90): PhotoPrompt, PhotoService
 - ProviderEngine.kt (295): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
 - PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
-- Publisher.kt (123): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
+- Publisher.kt (141): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
+- Review.kt (135): ReviewTags, ReviewAnalyzer, Group, Insights, ReviewStore
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
-- Site.kt (181): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- Site.kt (182): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
 - SiteIndex.kt (36): IndexItem, SiteIndexDoc, SiteIndex
 - SiteProfiler.kt (130): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
+- Stats.kt (36): ProvRate, SiteWeek, Stats
 - StudioData.kt (19): StudioData
 - SvgDraw.kt (131): hsl, SvgDraw
 - Text.kt (89): esc, toHtml, Tag, parseTags, one, List, wc +9
@@ -83,19 +87,20 @@
 - Prefs.kt (33): UiPrefs, LiveStatus
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (322): HomeScreen
-- HomeViewModel.kt (163): NodeState, NodeUi, BallPass, RowUi, SiteCardUi, HomeUiState, HomeViewModel
+- HomeScreen.kt (341): HomeScreen
+- HomeViewModel.kt (168): NodeState, NodeUi, BallPass, RowUi, SiteCardUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
 - Icons.kt (55): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
-- AppNav.kt (138): AppNav
+- AppNav.kt (140): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
 - Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
 - Export.kt (338): ExportViewModel, ExportScreen, pubModeLabel
+- Insights.kt (262): InsightsUi, InsightsViewModel, InsightsScreen
 - Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
-- Sites.kt (448): SiteStats, SiteForms, SitesViewModel, SitesScreen
+- Sites.kt (449): SiteStats, SiteForms, SitesViewModel, SitesScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -116,20 +121,22 @@
 - file_paths.xml (6)
 ### app/src/test/kotlin/com/sajed/articlestudio/
 - CoreTest.kt (39): CoreTest
-- MigrationTest.kt (51): MigrationTest
+- MigrationTest.kt (62): MigrationTest
 ### app/src/test/kotlin/com/sajed/articlestudio/engine/
 - AutoRunTest.kt (40): AutoRunTest
 - EngineTest.kt (83): EngineTest
 - Fixtures.kt (14): sampleArticle
+- GateTest.kt (33): GateTest
 - GeneratorTest.kt (106): GeneratorTest
 - GuardsTest.kt (52): GuardsTest
 - ImageEngineTest.kt (138): ImageEngineTest
-- JobRunnerTest.kt (164): JobRunnerTest
+- JobRunnerTest.kt (165): JobRunnerTest
 - MotifTest.kt (22): MotifTest
 - PhotoServiceTest.kt (99): PhotoServiceTest
 - ProviderHttpTest.kt (100): ProviderHttpTest
-- PublishTest.kt (112): PublishTest
+- PublishTest.kt (147): PublishTest
 - RenderTest.kt (58): RenderTest
+- ReviewTest.kt (135): ReviewTest
 - SiteProfilerTest.kt (51): SiteProfilerTest
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
