@@ -2,6 +2,7 @@ package com.sajed.articlestudio.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /** status: ready | failed | exported. data: Article JSON للجاهز، Topic JSON للفاشل. */
@@ -39,4 +40,24 @@ data class JobEntity(
     @ColumnInfo(defaultValue = "''") val custom: String = "",
     @ColumnInfo(defaultValue = "0") val failed: Int = 0,
     @ColumnInfo(name = "site_id", defaultValue = "'default'") val siteId: String = "default",
+)
+
+/** مراجعة ما بعد النشر: مقاييس آلية وقت النشر + تقييم ساجد وملاحظاته، تُحفظ كمرجع دائم للجودة. */
+@Entity(tableName = "reviews", indices = [Index(value = ["article_id"], unique = true)])
+data class ReviewEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "article_id") val articleId: Long,
+    @ColumnInfo(name = "site_id") val siteId: String,
+    val title: String,
+    @ColumnInfo(name = "remote_url") val remoteUrl: String = "",
+    @ColumnInfo(name = "published_at") val publishedAt: Long,
+    val words: Int = 0,
+    val provider: String = "",
+    val auto: Int = 0,
+    val metrics: String = "{}",
+    val flags: String = "",
+    val rating: Int = 0,
+    val tags: String = "",
+    val notes: String = "",
+    @ColumnInfo(name = "reviewed_at") val reviewedAt: Long = 0,
 )

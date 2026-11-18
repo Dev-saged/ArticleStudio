@@ -19,7 +19,7 @@ class PublishEntry(val item: PublishItem, val articleId: Long? = null)
 @Singleton
 class PublishManager @Inject constructor(
     private val http: OkHttpClient, private val sites: SiteStore,
-    private val arts: ArticleDao, private val auth: GoogleAuth, private val blog: BlogIndex,
+    private val arts: ArticleDao, private val auth: GoogleAuth, private val blog: BlogIndex, private val reviews: ReviewStore,
 ) {
     fun enabled(site: SiteConfig) = site.pubMode == "google"
 
@@ -57,7 +57,7 @@ class PublishManager @Inject constructor(
             try {
                 val r = p.publish(e.item, state, recheck)
                 ok++; if (r.url.isNotEmpty()) urls += r.url
-                (e.articleId ?: local?.id)?.let { arts.setRemote(it, r.url.ifEmpty { "published" }) }
+                (e.articleId ?: local?.id)?.let { arts.setRemote(it, r.url.ifEmpty { "published" }); runCatching { reviews.record(it) } }
                 if (i < entries.lastIndex) delay(400)
             } catch (x: CancellationException) { throw x } catch (x: PublishException) {
                 if (x.auth) return PublishReport(ok, skipped, failed + "${e.item.title}: ${x.message}", urls, state, fatal = x.message)

@@ -60,7 +60,7 @@ class Gate(private val limit: () -> Int) {
 class JobRunner @Inject constructor(
     private val gen: Generator, private val jobs: JobDao, private val arts: ArticleDao,
     private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex, private val sites: SiteStore,
-    private val post: PostRun, private val settings: com.sajed.articlestudio.data.GenSettings,
+    private val post: PostRun, private val settings: com.sajed.articlestudio.data.GenSettings, private val reviews: ReviewStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _states = MutableStateFlow<Map<String, JobUi>>(emptyMap())
@@ -152,7 +152,7 @@ class JobRunner @Inject constructor(
     private suspend fun execute(job0: JobEntity) {
         var job = job0
         var dup = 0
-        val site = sites.get(job.siteId)
+        val site = sites.get(job.siteId).let { s -> val g = runCatching { reviews.guidance(s.id) }.getOrDefault(""); if (g.isEmpty()) s else s.copy(rules = (s.rules + "\n" + g).trim()) }
         val _state = slot(site.id)
         _state.value = JobUi(true, job.id, job.total, job.done, job.failed, phase = "تخطيط المواضيع")
         try {

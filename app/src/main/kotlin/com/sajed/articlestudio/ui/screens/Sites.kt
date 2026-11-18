@@ -206,7 +206,7 @@ class SitesViewModel @Inject constructor(
     }
 
     fun remove(id: String) = viewModelScope.launch {
-        if (store.remove(id)) { db.articles().deleteSite(id); db.jobs().deleteSite(id) }
+        if (store.remove(id)) { db.articles().deleteSite(id); db.jobs().deleteSite(id); db.reviews().deleteSite(id) }
     }
 }
 

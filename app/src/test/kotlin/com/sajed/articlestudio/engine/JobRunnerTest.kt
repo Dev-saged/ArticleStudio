@@ -86,7 +86,7 @@ ${words(30)}
         val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
         siteStore = SiteStore(ctx)
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), siteStore, PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" }, GenSettings(ctx))
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), siteStore, PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" }, GenSettings(ctx), ReviewStore(db.reviews(), db.articles()))
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }

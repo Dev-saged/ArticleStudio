@@ -120,4 +120,36 @@ class GitHubClient @Inject constructor(private val http: OkHttpClient, private v
         gh("/repos/$o/$r/git/refs/heads/$enc", "PATCH", buildJsonObject { put("sha", c.str("sha")) }, "تحديث الفرع")
         return "https://cdn.jsdelivr.net/gh/$o/$r@${c.str("sha")}/images/articles/"
     }
+
+    private suspend fun ensureBranch(o: String, r: String, br: String) {
+        val enc = URLEncoder.encode(br, "UTF-8")
+        try { gh("/repos/$o/$r/git/ref/heads/$enc", what = "قراءة الفرع") } catch (e: GitHubException) {
+            if (e.status != 404) throw e
+            val info = gh("/repos/$o/$r", what = "قراءة المستودع")
+            val def = URLEncoder.encode(info.str("default_branch"), "UTF-8")
+            val baseRef = gh("/repos/$o/$r/git/ref/heads/$def", what = "قراءة الفرع الأساسي")
+            gh("/repos/$o/$r/git/refs", "POST", buildJsonObject { put("ref", "refs/heads/$br"); put("sha", baseRef.str("object", "sha")) }, "إنشاء الفرع")
+        }
+    }
+
+    /** يكتب ملفاً نصياً على فرع مخصص (ينشئه عند الغياب) ويحدّثه إن وُجد. */
+    suspend fun putText(repo: String, branch: String, path: String, text: String, message: String) {
+        val (o, r) = ownerRepo(repo)
+        ensureBranch(o, r, branch)
+        val enc = URLEncoder.encode(branch, "UTF-8")
+        val sha = try { gh("/repos/$o/$r/contents/$path?ref=$enc", what = "قراءة النسخة").str("sha") } catch (e: GitHubException) { if (e.status == 404) "" else throw e }
+        gh("/repos/$o/$r/contents/$path", "PUT", buildJsonObject {
+            put("message", message); put("branch", branch)
+            put("content", Base64.getEncoder().encodeToString(text.toByteArray(Charsets.UTF_8)))
+            if (sha.isNotEmpty()) put("sha", sha)
+        }, "رفع النسخة")
+    }
+
+    /** يقرأ ملفاً نصياً؛ null إن لم يوجد. */
+    suspend fun getText(repo: String, branch: String, path: String): String? {
+        val (o, r) = ownerRepo(repo)
+        val enc = URLEncoder.encode(branch, "UTF-8")
+        val e = try { gh("/repos/$o/$r/contents/$path?ref=$enc", what = "قراءة النسخة") } catch (x: GitHubException) { if (x.status == 404) return null else throw x }
+        return String(Base64.getMimeDecoder().decode(e.str("content")), Charsets.UTF_8)
+    }
 }

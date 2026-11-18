@@ -12,7 +12,7 @@
 - النشر المباشر: ناشر واحد (Blogger API بتفويض جوجل) → `engine/Publisher.kt`، `engine/PublishManager.kt`، `engine/GoogleAuth.kt`، `engine/XmlImport.kt`؛ الدليل والإعداد → `ui/screens/Publish.kt` → `PublishGuide`
 - المسار التلقائي بعد التوليد → `engine/AutoPipeline.kt` (`PostRun`، يستدعيه `JobRunner.execute`)؛ المؤقت الدوري → `engine/AutoRun.kt` (`AutoPlan`، `AutoRunner.tick`، `AutoWorker`)؛ حقول `auto*` في `SiteConfig`
 - محرر الموقع (ورقة واحدة + زر «تعبئة تلقائية») → `ui/screens/Sites.kt` → `SiteEditor`؛ التحليل → `engine/SiteProfiler.kt` (`ProfileLogic` نقية)
-- Room v4 + ترحيلات (site_id، quality، remote_url) → `data/Db.kt`، `data/Entities.kt` → `Migrations`
+- Room v5 + ترحيلات (…، reviews) → `data/{Db,Entities}.kt`؛ المراجعة/الإحصاء/النسخة → `engine/{Review,Stats,Backup}.kt`، الواجهة `ui/screens/Insights.kt` (مسار `insights`)
 - المفاتيح/المزودون → `data/{KeyBackup,Providers,SecretStore,Stores}.kt`؛ التوليد → `engine/{Generator,JobRunner}.kt`؛ GitHub → `engine/GitHubClient.kt`
 - فهرس المدونة → `engine/BlogIndex.kt`؛ الأخبار → `engine/NewsSources.kt`؛ المكرر: حالة `duplicate` (مستثناة لا فاشلة) في `JobRunner`
 - XML بلوجر، التصدير، التسمية، الخدمة الأمامية → `engine/{XmlBuilder,ExportManager,ExportNaming,GenerationService}.kt`
@@ -29,10 +29,10 @@
 - أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
-- مصادر الصور مواصفاتها في `ProviderCatalog` بـ`kind="image"` ومفاتيحها `key.<id>`؛ Gemini وTogether يعيدان استعمال مفتاح النص. Cloudflare: `ACCOUNT_ID:TOKEN`.
+- صور: `ProviderCatalog` بـ`kind="image"` ومفاتيحها `key.<id>`؛ Cloudflare: `ACCOUNT_ID:TOKEN`.
 - مهلات الشبكة: `DataModule.http` قراءة 60ث/كتابة 90ث؛ `GitHubClient.gh` يعيد 3 مرات للشبكة/5xx/429. سبب «timeout» القديم: مهلة 10ث الافتراضية.
-- المتوقف عن النشر: `ExportManager.publishPending` (من XML المحفوظ)، زر «انشر المتوقف» في Export.
-- `JobRunner`: مهمة مستقلة لكل موقع (`runs[siteId]`)؛ `states`/`stateOf(id)`، `state` مجمّع؛ `Semaphore(3)` يحد مقالات LLM المتزامنة؛ `resume(siteId)`، `stop(siteId?)`.
+- المتوقف عن النشر: `ExportManager.publishPending` (recheck)، زر «انشر المتوقف».
+- `JobRunner`: مهمة مستقلة لكل موقع (`runs[siteId]`)؛ `states`/`stateOf(id)`، `state` مجمّع؛ `Gate` (حد `GenSettings.parallel` 1..4)؛ `findByTitle` يمنع تكرار النشر عند إعادة المحاولة؛ `perSlot` للجدولة؛ `resume(siteId)`، `stop(siteId?)`.
 
 ## Open issues
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).

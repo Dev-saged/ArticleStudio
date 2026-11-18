@@ -66,7 +66,7 @@ import com.sajed.articlestudio.ui.theme.ltr
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Unit, onOpenInsights: () -> Unit = {}, vm: HomeViewModel = hiltViewModel()) {
     val s by vm.ui.collectAsStateWithLifecycle()
     val c = AppTheme.colors
     val ctx = LocalContext.current
@@ -81,7 +81,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
     }
 
     androidx.activity.compose.BackHandler(enabled = s.room) { vm.closeRoom() }
-    if (!s.room) ControlRoom(s, vm, isDark, onToggleTheme, onOpenTest) { logs = true } else LazyColumn(
+    if (!s.room) ControlRoom(s, vm, isDark, onToggleTheme, onOpenTest, onOpenInsights) { logs = true } else LazyColumn(
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -249,7 +249,7 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun ControlRoom(s: HomeUiState, vm: HomeViewModel, isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Unit, onLogs: () -> Unit) {
+private fun ControlRoom(s: HomeUiState, vm: HomeViewModel, isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Unit, onInsights: () -> Unit, onLogs: () -> Unit) {
     val c = AppTheme.colors
     var taps by remember { mutableIntStateOf(0) }
     var lastTap by remember { mutableLongStateOf(0L) }
@@ -269,6 +269,7 @@ private fun ControlRoom(s: HomeUiState, vm: HomeViewModel, isDark: Boolean, onTo
                     )
                     Text(if (live == 0) "كل المواقع هادئة" else "${live.toString().ltr()} ${if (live == 1) "موقع يعمل الآن" else "مواقع تعمل الآن"}", style = MaterialTheme.typography.bodyMedium, color = if (live == 0) c.muted else c.goldText)
                 }
+                IconBtn(Icons.Eye, "الرؤى والمراجعة", onInsights)
                 IconBtn(Icons.Document, "سجل العمليات", onLogs)
                 IconBtn(if (isDark) Icons.Sun else Icons.Moon, "تبديل الوضع الفاتح والغامق", onToggleTheme)
             }
