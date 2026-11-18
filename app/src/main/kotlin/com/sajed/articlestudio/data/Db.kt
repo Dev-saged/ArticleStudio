@@ -39,6 +39,9 @@ interface ArticleDao {
     @Query("UPDATE articles SET remote_url = :url WHERE id = :id")
     suspend fun setRemote(id: Long, url: String)
 
+    @Query("SELECT id FROM articles WHERE remote_url != '' AND status != 'failed' AND id NOT IN (SELECT article_id FROM reviews)")
+    suspend fun publishedWithoutReview(): List<Long>
+
     @Query("SELECT * FROM articles WHERE status = 'exported' AND remote_url = '' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
     suspend fun unpublished(siteId: String): List<ArticleEntity>
 
@@ -65,6 +68,30 @@ interface ArticleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(a: ArticleEntity): Long
+}
+
+@Dao
+interface ReviewDao {
+    @Query("SELECT * FROM reviews ORDER BY published_at DESC")
+    fun observeAll(): Flow<List<ReviewEntity>>
+
+    @Query("SELECT * FROM reviews ORDER BY published_at DESC")
+    suspend fun all(): List<ReviewEntity>
+
+    @Query("SELECT * FROM reviews WHERE article_id = :articleId")
+    suspend fun byArticle(articleId: Long): ReviewEntity?
+
+    @Query("SELECT * FROM reviews WHERE site_id = :siteId AND rating BETWEEN 1 AND 3")
+    suspend fun lowRated(siteId: String): List<ReviewEntity>
+
+    @Query("UPDATE reviews SET rating = :rating, tags = :tags, notes = :notes, reviewed_at = :ts WHERE id = :id")
+    suspend fun rate(id: Long, rating: Int, tags: String, notes: String, ts: Long)
+
+    @Query("DELETE FROM reviews WHERE site_id = :siteId")
+    suspend fun deleteSite(siteId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(r: ReviewEntity): Long
 }
 
 @Dao
@@ -112,11 +139,18 @@ object Migrations {
             db.execSQL("ALTER TABLE articles ADD COLUMN remote_url TEXT NOT NULL DEFAULT ''")
         }
     }
-    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4)
+    val M4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, article_id INTEGER NOT NULL, site_id TEXT NOT NULL, title TEXT NOT NULL, remote_url TEXT NOT NULL, published_at INTEGER NOT NULL, words INTEGER NOT NULL, provider TEXT NOT NULL, auto INTEGER NOT NULL, metrics TEXT NOT NULL, flags TEXT NOT NULL, rating INTEGER NOT NULL, tags TEXT NOT NULL, notes TEXT NOT NULL, reviewed_at INTEGER NOT NULL)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_reviews_article_id ON reviews (article_id)")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4, M4_5)
 }
 
-@Database(entities = [ArticleEntity::class, JobEntity::class], version = 4, exportSchema = true)
+@Database(entities = [ArticleEntity::class, JobEntity::class, ReviewEntity::class], version = 5, exportSchema = true)
 abstract class AppDb : RoomDatabase() {
     abstract fun articles(): ArticleDao
     abstract fun jobs(): JobDao
+    abstract fun reviews(): ReviewDao
 }

@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.launch
@@ -39,12 +40,27 @@ class SiteSlot(private val put: (JobUi) -> Unit, private val get: () -> JobUi) {
     fun update(f: (JobUi) -> JobUi) = put(f(get()))
 }
 
+/** بوابة تزامن بسقف قابل للتعديل أثناء العمل: من يجد السقف ممتلئاً ينتظر دون حجب غيره. */
+class Gate(private val limit: () -> Int) {
+    private val m = Mutex()
+    private val used = java.util.concurrent.atomic.AtomicInteger(0)
+    suspend fun <T> withPermit(block: suspend () -> T): T {
+        while (true) {
+            val ok = m.withLock { if (used.get() < limit().coerceAtLeast(1)) { used.incrementAndGet(); true } else false }
+            if (ok) break
+            delay(300)
+        }
+        try { return block() } finally { used.decrementAndGet() }
+    }
+    fun active() = used.get()
+}
+
 /** يشغّل لكل موقع مهمة مستقلة في نطاق التطبيق ويحفظ كل مقال فور اكتماله؛ يستأنف من الفهرس المخزّن بعد أي توقف. */
 @Singleton
 class JobRunner @Inject constructor(
     private val gen: Generator, private val jobs: JobDao, private val arts: ArticleDao,
     private val bus: RunBus, private val live: LiveStatus, private val blog: BlogIndex, private val sites: SiteStore,
-    private val post: PostRun,
+    private val post: PostRun, private val settings: com.sajed.articlestudio.data.GenSettings, private val reviews: ReviewStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _states = MutableStateFlow<Map<String, JobUi>>(emptyMap())
@@ -53,7 +69,7 @@ class JobRunner @Inject constructor(
     /** مجمّع كل المواقع: يعمل إن عمل أي موقع، وتُجمع العدّادات. */
     val state: StateFlow<JobUi> = _state.asStateFlow()
     private val runs = ConcurrentHashMap<String, Job>()
-    private val slots = Semaphore(3)
+    private val slots = Gate { settings.parallel.value }
 
     fun stateOf(siteId: String): JobUi = _states.value[siteId] ?: JobUi()
 
@@ -136,7 +152,7 @@ class JobRunner @Inject constructor(
     private suspend fun execute(job0: JobEntity) {
         var job = job0
         var dup = 0
-        val site = sites.get(job.siteId)
+        val site = sites.get(job.siteId).let { s -> val g = runCatching { reviews.guidance(s.id) }.getOrDefault(""); if (g.isEmpty()) s else s.copy(rules = (s.rules + "\n" + g).trim()) }
         val _state = slot(site.id)
         _state.value = JobUi(true, job.id, job.total, job.done, job.failed, phase = "تخطيط المواضيع")
         try {

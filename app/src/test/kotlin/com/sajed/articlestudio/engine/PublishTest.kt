@@ -108,4 +108,39 @@ class PublishTest {
         val pub = server.takeRequest()
         assertTrue(pub.path!!, pub.path!!.contains("/posts/P9/publish") && pub.path!!.contains("publishDate=2030-05-01T08"))
     }
+
+    @Test fun recheckReturnsExistingPostInsteadOfCreatingDuplicate() = runBlocking {
+        server.enqueue(json("""{"id":"B1","name":"مدونة"}"""))
+        server.enqueue(json("""{"items":[{"id":"OLD","url":"https://b.blogspot.com/old.html","title":"  عنوان   تجريبي "}]}"""))
+        val g = GooglePublisher(http, { "T" }, "https://b.blogspot.com", server.url("/v3").toString().trimEnd('/'))
+        val r = g.publish(item, PubState.Live, recheck = true)
+        assertEquals("OLD", r.id); assertEquals(2, server.requestCount)
+        server.takeRequest(); assertTrue(server.takeRequest().path!!.contains("/blogs/B1/posts") )
+    }
+
+    @Test fun recheckCreatesWhenTitleIsAbsent() = runBlocking {
+        server.enqueue(json("""{"id":"B1","name":"مدونة"}"""))
+        server.enqueue(json("""{"items":[{"id":"X","url":"u","title":"عنوان آخر"}]}"""))
+        server.enqueue(json("""{"id":"NEW","url":"https://b.blogspot.com/n.html"}"""))
+        val g = GooglePublisher(http, { "T" }, "https://b.blogspot.com", server.url("/v3").toString().trimEnd('/'))
+        assertEquals("NEW", g.publish(item, PubState.Live, recheck = true).id); assertEquals(3, server.requestCount)
+    }
+
+    @Test fun retryAfterTimeoutFindsPostThatActuallyLanded() = runBlocking {
+        server.enqueue(json("""{"id":"B1","name":"مدونة"}"""))
+        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(json("""{"items":[{"id":"LANDED","url":"https://b.blogspot.com/l.html","title":"عنوان تجريبي"}]}"""))
+        val g = GooglePublisher(http, { "T" }, "https://b.blogspot.com", server.url("/v3").toString().trimEnd('/'))
+        assertEquals("LANDED", g.publish(item, PubState.Live).id)
+    }
+
+    @Test fun perSlotPublishesGroupsTogetherAtEachInterval() {
+        val l = listOf(sampleArticle("a", "عنوان أول للاختبار"), sampleArticle("b", "عنوان ثانٍ للاختبار"), sampleArticle("c", "عنوان ثالث للاختبار"), sampleArticle("d", "عنوان رابع للاختبار"))
+        val now = Instant.parse("2026-11-15T10:00:00Z")
+        val xml = XmlBuilder.build(l, "https://cdn.example/", 1, now, perSlot = 2)
+        val t = Regex("<published>([^<]+)</published>").findAll(xml).map { Instant.parse(it.groupValues[1]) }.toList()
+        assertEquals(4, t.size)
+        assertEquals(now.plusSeconds(3600), t[0]); assertEquals(now.plusSeconds(3600 + 300), t[1])
+        assertEquals(now.plusSeconds(7200), t[2]); assertEquals(now.plusSeconds(7200 + 300), t[3])
+    }
 }

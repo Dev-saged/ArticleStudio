@@ -100,9 +100,9 @@ class ExportManager @Inject constructor(
         _pub.value = PubUi(false, r.total, r.total, r, p.siteId)
     }
 
-    private suspend fun runPublish(siteId: String, entries: List<PublishEntry>): PublishReport {
+    private suspend fun runPublish(siteId: String, entries: List<PublishEntry>, recheck: Boolean = false): PublishReport {
         _pub.value = PubUi(true, 0, entries.size, siteId = siteId)
-        val r = try { publisher.publish(siteId, entries) { d, t -> _pub.value = PubUi(true, d, t, siteId = siteId) } }
+        val r = try { publisher.publish(siteId, entries, recheck) { d, t -> _pub.value = PubUi(true, d, t, siteId = siteId) } }
         catch (e: CancellationException) { throw e } catch (e: Exception) { PublishReport(fatal = clamp(e.message, 140)) }
         pending = if (r.consent != null || r.fatal != null) Pending(siteId, entries, emptyList()) else null
         _pub.value = PubUi(false, r.total, r.total, r, siteId)
@@ -130,7 +130,7 @@ class ExportManager @Inject constructor(
             runCatching { XmlImport.parse(f.readText()) }.getOrNull()?.forEach { it -> val r = rows[it.title]; if (r != null && seen.add(it.title)) entries += PublishEntry(it, r.id) }
         }
         if (entries.isEmpty()) { _pub.value = PubUi(report = PublishReport(fatal = "لا ملف XML محفوظ يحوي المقالات المتوقفة"), siteId = siteId); return@withContext }
-        runPublish(siteId, entries)
+        runPublish(siteId, entries, recheck = true)
     }
 
     fun clearPub() { _pub.value = PubUi(); pending = null }
@@ -178,7 +178,7 @@ class ExportManager @Inject constructor(
             }
             stage("بناء XML وحفظه", 4, count)
             files.forEach { f -> saveDownload(f.name, "image/jpeg", f.bytes, "$folder/images") }
-            val xml = XmlBuilder.build(list, base, if (site.schedule > 0) site.schedule else cfg.scheduleHours, blog = blog.all(site.url), site = site)
+            val xml = XmlBuilder.build(list, base, if (site.schedule > 0) site.schedule else cfg.scheduleHours, blog = blog.all(site.url), site = site, perSlot = site.perSlot)
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
             File(dir, name).writeText(xml)
             saveDownload(name, "text/xml", xml.toByteArray(), folder)

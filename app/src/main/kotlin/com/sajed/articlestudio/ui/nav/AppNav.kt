@@ -52,6 +52,7 @@ import com.sajed.articlestudio.ui.icons.Icons
 import com.sajed.articlestudio.ui.home.HomeScreen
 import com.sajed.articlestudio.ui.screens.ArticlesScreen
 import com.sajed.articlestudio.ui.screens.ExportScreen
+import com.sajed.articlestudio.ui.screens.InsightsScreen
 import com.sajed.articlestudio.ui.screens.ProvidersScreen
 import com.sajed.articlestudio.ui.screens.SitesScreen
 import com.sajed.articlestudio.ui.test.SelfTestScreen
@@ -89,11 +90,12 @@ fun AppNav(live: LiveStatus, onToggleTheme: () -> Unit) {
                 popEnterTransition = { fadeIn(tween(140)) },
                 popExitTransition = { fadeOut(tween(90)) },
             ) {
-                composable("home") { HomeScreen(c.isDark, onToggleTheme, onOpenTest = { nav.navigate(TEST) }, vm = homeVm) }
+                composable("home") { HomeScreen(c.isDark, onToggleTheme, onOpenTest = { nav.navigate(TEST) }, onOpenInsights = { nav.navigate("insights") }, vm = homeVm) }
                 composable("sites") { SitesScreen(onGenerate = { homeVm.openRoom(homeVm.sites.activeId.value); nav.navigate("home") { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
                 composable("articles") { ArticlesScreen() }
                 composable("providers") { ProvidersScreen() }
                 composable("export") { ExportScreen() }
+                composable("insights") { InsightsScreen(onBack = { nav.popBackStack() }) }
                 composable(TEST) { SelfTestScreen { nav.popBackStack() } }
             }
             if (route != TEST) {

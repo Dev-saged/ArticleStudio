@@ -19,7 +19,7 @@ class PublishEntry(val item: PublishItem, val articleId: Long? = null)
 @Singleton
 class PublishManager @Inject constructor(
     private val http: OkHttpClient, private val sites: SiteStore,
-    private val arts: ArticleDao, private val auth: GoogleAuth, private val blog: BlogIndex,
+    private val arts: ArticleDao, private val auth: GoogleAuth, private val blog: BlogIndex, private val reviews: ReviewStore,
 ) {
     fun enabled(site: SiteConfig) = site.pubMode == "google"
 
@@ -43,7 +43,7 @@ class PublishManager @Inject constructor(
     }
 
     /** ينشر العناصر تباعاً. فشل عنصر لا يوقف البقية، أما خطأ الصلاحية فيوقف كل شيء. */
-    suspend fun publish(siteId: String, entries: List<PublishEntry>, step: (Int, Int) -> Unit = { _, _ -> }): PublishReport {
+    suspend fun publish(siteId: String, entries: List<PublishEntry>, recheck: Boolean = false, step: (Int, Int) -> Unit = { _, _ -> }): PublishReport {
         val site = sites.get(siteId)
         val state = PubState.of(site.pubState)
         val (p, rep) = build(site)
@@ -55,9 +55,9 @@ class PublishManager @Inject constructor(
             val local = e.articleId?.let { arts.byId(it) } ?: arts.byTitle(site.id, e.item.title)
             if (local != null && local.remoteUrl.isNotEmpty()) { skipped++; return@forEachIndexed }
             try {
-                val r = p.publish(e.item, state)
+                val r = p.publish(e.item, state, recheck)
                 ok++; if (r.url.isNotEmpty()) urls += r.url
-                (e.articleId ?: local?.id)?.let { arts.setRemote(it, r.url.ifEmpty { "published" }) }
+                (e.articleId ?: local?.id)?.let { arts.setRemote(it, r.url.ifEmpty { "published" }); runCatching { reviews.record(it) } }
                 if (i < entries.lastIndex) delay(400)
             } catch (x: CancellationException) { throw x } catch (x: PublishException) {
                 if (x.auth) return PublishReport(ok, skipped, failed + "${e.item.title}: ${x.message}", urls, state, fatal = x.message)
@@ -73,6 +73,6 @@ class PublishManager @Inject constructor(
     suspend fun publishXml(siteId: String, xml: String, step: (Int, Int) -> Unit = { _, _ -> }): PublishReport {
         val items = try { XmlImport.parse(xml) } catch (e: Exception) { return PublishReport(fatal = "الملف ليس XML صالحاً بصيغة بلوجر") }
         if (items.isEmpty()) return PublishReport(fatal = "لا تدوينات داخل الملف")
-        return publish(siteId, items.map { PublishEntry(it) }, step)
+        return publish(siteId, items.map { PublishEntry(it) }, step = step)
     }
 }

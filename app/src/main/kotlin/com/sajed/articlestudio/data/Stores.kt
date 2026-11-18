@@ -9,6 +9,15 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** إعدادات التوليد العامة: سقف المقالات المتزامنة عبر كل المواقع (1–4). */
+@Singleton
+class GenSettings @Inject constructor(@ApplicationContext c: Context) {
+    private val sp = c.getSharedPreferences("gen", Context.MODE_PRIVATE)
+    private val _parallel = kotlinx.coroutines.flow.MutableStateFlow(sp.getInt("parallel", 3).coerceIn(1, 4))
+    val parallel: kotlinx.coroutines.flow.StateFlow<Int> = _parallel
+    fun setParallel(n: Int) { val v = n.coerceIn(1, 4); sp.edit().putInt("parallel", v).apply(); _parallel.value = v }
+}
+
 @Serializable
 class Health(var ok: Int = 0, var fail: Int = 0, var streak: Int = 0, var until: Long = 0)
 

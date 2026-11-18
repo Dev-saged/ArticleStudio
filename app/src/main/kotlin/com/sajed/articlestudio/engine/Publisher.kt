@@ -34,7 +34,8 @@ class PublishException(message: String, val auth: Boolean = false, val retry: Bo
 interface BlogPublisher {
     /** يتحقق من الاتصال ويعيد اسم المدونة. */
     suspend fun test(): String
-    suspend fun publish(item: PublishItem, state: PubState): Remote
+    /** recheck: قد يكون النشر السابق نجح رغم الانقطاع، فيُبحث عن العنوان في المدونة أولاً لمنع التكرار. */
+    suspend fun publish(item: PublishItem, state: PubState, recheck: Boolean = false): Remote
 }
 
 private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
@@ -96,12 +97,29 @@ class GooglePublisher(private val http: OkHttpClient, private val token: suspend
         return Remote(o["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), o["url"]?.jsonPrimitive?.contentOrNull.orEmpty())
     }
 
+    /** يبحث في آخر التدوينات (منشورة/مسودة/مجدولة) عن عنوان مطابق تماماً. */
+    private suspend fun findByTitle(id: String, title: String): Remote? {
+        val u = "$api/blogs/$id/posts".toHttpUrl().newBuilder().addQueryParameter("fetchBodies", "false").addQueryParameter("maxResults", "30")
+            .addQueryParameter("orderBy", "published").addQueryParameter("fields", "items(id,url,title)")
+            .addQueryParameter("status", "live").addQueryParameter("status", "draft").addQueryParameter("status", "scheduled").build()
+        val (code, text) = exec(http, Request.Builder().url(u).header("Authorization", "Bearer ${token()}").build())
+        if (code !in 200..299) return null
+        val key = same(title)
+        val arr = runCatching { lenient.parseToJsonElement(text).jsonObject["items"] as? kotlinx.serialization.json.JsonArray }.getOrNull() ?: return null
+        return arr.map { it.jsonObject }.firstOrNull { same(it["title"]?.jsonPrimitive?.contentOrNull.orEmpty()) == key }
+            ?.let { Remote(it["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), it["url"]?.jsonPrimitive?.contentOrNull.orEmpty()) }
+    }
+
+    private fun same(t: String) = t.replace(Regex("\\s+"), " ").trim()
+
     /** الجدولة وفق وثائق Blogger: تُنشأ مسودة ثم تُنشر بـ publishDate مستقبلي. */
-    override suspend fun publish(item: PublishItem, state: PubState): Remote {
+    override suspend fun publish(item: PublishItem, state: PubState, recheck: Boolean): Remote {
         val id = resolve()
         val at = instant(item.at, state)
         val draft = state == PubState.Draft || at != null
+        var attempt = 0
         val created = withRetry {
+            if (recheck || attempt++ > 0) runCatching { findByTitle(id, item.title) }.getOrNull()?.let { return@withRetry it }
             val u = "$api/blogs/$id/posts".toHttpUrl().newBuilder().addQueryParameter("isDraft", draft.toString()).build()
             val body = buildJsonObject {
                 put("kind", "blogger#post"); put("title", item.title); put("content", item.html)

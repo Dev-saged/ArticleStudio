@@ -80,6 +80,7 @@ data class SiteConfig(
     val count: Int = 10,
     val mode: String = "News",
     val schedule: Int = 0,
+    val perSlot: Int = 1,
     val repo: String = "",
     val branch: String = "",
     val pubMode: String = "off",
@@ -127,7 +128,7 @@ object SiteRules {
         name = s.name.trim().take(60), url = s.url.trim().trimEnd('/'), author = s.author.trim().take(60), audience = s.audience.trim().take(120),
         keywords = s.keywords.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(12), avoid = s.avoid.trim().take(400), rules = s.rules.trim().take(1200),
         feeds = s.feeds.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8), labels = s.labels.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(8),
-        googleAccount = s.googleAccount.trim(), count = s.count.coerceIn(3, 30), schedule = s.schedule.coerceIn(0, 72),
+        googleAccount = s.googleAccount.trim(), count = s.count.coerceIn(3, 30), schedule = s.schedule.coerceIn(0, 72), perSlot = s.perSlot.coerceIn(1, 6),
         autoEvery = s.autoEvery.coerceIn(0, 24), autoCount = s.autoCount.coerceIn(1, 10), autoFrom = s.autoFrom.coerceIn(0, 23), autoTo = s.autoTo.coerceIn(1, 24),
     )
 

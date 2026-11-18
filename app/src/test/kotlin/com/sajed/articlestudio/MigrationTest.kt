@@ -47,4 +47,15 @@ class MigrationTest {
         val db = helper.runMigrationsAndValidate("t4", 4, true, *Migrations.ALL)
         db.query("SELECT remote_url, quality FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("", it.getString(0)); assertEquals(50, it.getInt(1)) }
     }
+
+    @Test fun migrate4To5CreatesReviewsAndKeepsArticles() {
+        helper.createDatabase("t5", 4).apply {
+            execSQL("INSERT INTO articles (job_id, idx, title, slug, labels, status, words, provider, html, error, updated_at, data, site_id, quality, remote_url) VALUES (1, 0, 'عنوان', 's', '', 'exported', 700, 'g', '', '', 1, '{}', 'default', 50, 'https://x/y')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("t5", 5, true, *Migrations.ALL)
+        db.query("SELECT remote_url FROM articles").use { assertEquals(true, it.moveToFirst()); assertEquals("https://x/y", it.getString(0)) }
+        db.execSQL("INSERT INTO reviews (article_id, site_id, title, remote_url, published_at, words, provider, auto, metrics, flags, rating, tags, notes, reviewed_at) VALUES (1, 'default', 't', '', 1, 1, 'g', 60, '{}', '', 0, '', '', 0)")
+        db.query("SELECT COUNT(*) FROM reviews").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+    }
 }
