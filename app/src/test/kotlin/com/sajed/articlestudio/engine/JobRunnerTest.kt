@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.sajed.articlestudio.data.AppDb
+import com.sajed.articlestudio.data.GenSettings
 import com.sajed.articlestudio.data.HealthStore
 import com.sajed.articlestudio.data.HistoryStore
 import com.sajed.articlestudio.data.JobEntity
@@ -85,7 +86,7 @@ ${words(30)}
         val gen = Generator(ProviderEngine(http, store, HealthStore(ctx), bus), http, bus, HistoryStore(ctx), StudioData(ctx), NewsSources(http))
         siteStore = SiteStore(ctx)
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
-        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), siteStore, PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" })
+        runner = JobRunner(gen, db.jobs(), db.articles(), bus, LiveStatus(), BlogIndex(ctx, http), siteStore, PostRun { id, stage -> postCalls += id; stage("تصدير"); "تم النشر: 2 مقالاً" }, GenSettings(ctx))
     }
 
     @After fun tearDown() { server.shutdown(); db.close() }

@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -142,6 +143,7 @@ fun HomeScreen(isDark: Boolean, onToggleTheme: () -> Unit, onOpenTest: () -> Uni
             }
         }
         item("upd") { com.sajed.articlestudio.ui.UpdateCard(vm.updater) }
+        item("ctl") { Controls(s, vm::setParallel) }
         item("board") { PitchBoard(s.nodes, s.ballAt, s.pass, Modifier.stagger(1)) }
         item("stats") {
             Row(Modifier.stagger(2), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -317,5 +319,21 @@ private fun Mini(label: String, n: Int, modifier: Modifier, hot: Boolean) {
     Column(modifier) {
         Text(n.toString().ltr(), style = NumberStyle.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize), color = if (hot) c.goldText else c.text)
         Text(label, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 1)
+    }
+}
+
+/** سقف التوازي ومؤشر جاهزية المزودين. */
+@Composable
+private fun Controls(s: HomeUiState, onParallel: (Int) -> Unit) {
+    val c = AppTheme.colors
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("مقالات متزامنة", style = MaterialTheme.typography.titleSmall, color = c.text, modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { (1..4).forEach { n -> AppChip(n.toString().ltr(), s.parallel == n, { onParallel(n) }) } }
+        }
+        Text(
+            "المزودون: ${s.provReady.toString().ltr()} جاهز" + if (s.provCooling > 0) " · ${s.provCooling.toString().ltr()} في راحة مؤقتة" else "",
+            style = MaterialTheme.typography.bodySmall, color = if (s.provReady == 0) c.red else c.muted,
+        )
     }
 }

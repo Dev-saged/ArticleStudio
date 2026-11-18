@@ -50,6 +50,9 @@ data class HomeUiState(
     val dup: Int = 0,
     val jobTotal: Int = 0,
     val nodes: List<NodeUi> = emptyList(),
+    val parallel: Int = 3,
+    val provReady: Int = 0,
+    val provCooling: Int = 0,
     val ballAt: Int = 0,
     val pass: BallPass? = null,
     val rows: List<RowUi> = emptyList(),
@@ -70,7 +73,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val runner: JobRunner, private val bus: RunBus, private val engine: ProviderEngine,
-    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, val sites: com.sajed.articlestudio.engine.SiteStore, arts: ArticleDao, @ApplicationContext private val ctx: Context,
+    private val store: ProviderStore, private val gh: GitHubClient, private val blog: com.sajed.articlestudio.engine.BlogIndex, val updater: com.sajed.articlestudio.engine.Updater, private val gen: com.sajed.articlestudio.data.GenSettings, val sites: com.sajed.articlestudio.engine.SiteStore, arts: ArticleDao, @ApplicationContext private val ctx: Context,
 ) : ViewModel() {
     private val customBy = HashMap<String, String>()
     private val inputs = MutableStateFlow(Triple(10, PlanMode.News, "") to "")
@@ -129,11 +132,13 @@ class HomeViewModel @Inject constructor(
         _ui.value = HomeUiState(
             room = _room.value, cards = cards,
             total = inp.first, mode = inp.second, custom = inp.third, running = job.running, resumable = job.resumable && !job.running,
-            done = job.done, failed = job.failed, dup = job.dup, jobTotal = job.total, nodes = nodes, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
+            done = job.done, failed = job.failed, dup = job.dup, jobTotal = job.total, nodes = nodes, parallel = gen.parallel.value, provReady = nodes.count { it.state != NodeState.NoKey && it.state != NodeState.Cooling }, provCooling = nodes.count { it.state == NodeState.Cooling }, ballAt = ballAt.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
             pass = currentPass, rows = mine.sortedByDescending { it.idx }.take(4).map { RowUi(it.idx + 1, it.title, it.words, it.provider) },
             avgWords = if (words.isEmpty()) 0 else words.sumOf { it.words } / words.size, notice = notice, logs = bus.logs.value.asReversed().take(60), phase = job.phase, blogCount = blog.count(sites.active().url), siteName = sites.active().name, siteNiche = sites.active().niche, siteCount = sites.sites.value.size,
         )
     }
+
+    fun setParallel(n: Int) = gen.setParallel(n)
 
     fun openRoom(id: String) { sites.setActive(id); _room.value = true }
     fun closeRoom() { _room.value = false }
