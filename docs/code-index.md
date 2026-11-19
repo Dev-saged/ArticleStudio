@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 115 ملفاً · 11751 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: Sites.kt 449 · HomeScreen.kt 341 · Export.kt 338 · 5.json 322 · ImageRenderer.kt 322 · ProviderEngine.kt 295 · Providers.kt 279 · Insights.kt 262
+> 133 ملفاً · 14699 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: package-lock.json 544 · 6.json 542 · Sites.kt 449 · HomeScreen.kt 342 · Export.kt 338 · Social.kt 338 · 5.json 322 · ImageRenderer.kt 322
 
 ### ./
 - CLAUDE.md (44)
@@ -20,30 +20,35 @@
 - repomap.yml (41)
 - unpack-zip.yml (79)
 ### app/
-- build.gradle.kts (83)
+- build.gradle.kts (84)
 ### app/schemas/com.sajed.articlestudio.data.AppDb/
 - 1.json (139)
 - 2.json (181)
 - 3.json (202)
 - 4.json (209)
 - 5.json (322)
+- 6.json (542)
 ### app/src/main/
-- AndroidManifest.xml (41)
+- AndroidManifest.xml (46)
 ### app/src/main/assets/
 - studio-data.json (1)
+### app/src/main/assets/social/
+- automation.js (129)
+- recipes.json (72)
 ### app/src/main/kotlin/com/sajed/articlestudio/
-- App.kt (27): App
+- App.kt (28): App
 - BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (157): ArticleRow, ArticleDao, ReviewDao, JobDao, Migrations, AppDb
+- Db.kt (166): ArticleRow, ArticleDao, ReviewDao, JobDao, Migrations, AppDb
 - Entities.kt (64): ArticleEntity, JobEntity, ReviewEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (66): SecretException, SecretStore
+- SocialEntities.kt (116): SocialAccountEntity, ShareJobEntity, SocialDao
 - Stores.kt (81): GenSettings, Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
-- Modules.kt (30): DataModule
+- Modules.kt (31): DataModule
 ### app/src/main/kotlin/com/sajed/articlestudio/engine/
 - AutoPipeline.kt (54): interface, AutoPipeline, PipelineModule
 - AutoRun.kt (95): AutoPlan, AutoRunner, AutoScheduler, AutoEntry, AutoWorker
@@ -63,12 +68,12 @@
 - NewsSources.kt (105): Feed, feedsFor, NewsSources
 - PhotoService.kt (90): PhotoPrompt, PhotoService
 - ProviderEngine.kt (295): ApiException, ChatMessage, ChatOpts, ChatResult, ProviderStat, ValidationFail, friendlyApi +2
-- PublishManager.kt (79): PublishReport, PublishEntry, PublishManager
+- PublishManager.kt (80): PublishReport, PublishEntry, PublishManager
 - Publisher.kt (141): PubState, PublishItem, Remote, PublishException, BlogPublisher, withRetry, GooglePublisher
 - Review.kt (135): ReviewTags, ReviewAnalyzer, Group, Insights, ReviewStore
 - RunBus.kt (46): LogLine, PassEvent, RunBus
 - SigningInfo.kt (21): SigningInfo
-- Site.kt (182): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
+- Site.kt (183): FeedDef, Niche, Niches, SiteConfig, SiteRules, SiteStore
 - SiteIndex.kt (36): IndexItem, SiteIndexDoc, SiteIndex
 - SiteProfiler.kt (130): BlogSnapshot, SiteProfile, SiteProfiler, ProfileLogic
 - Stats.kt (36): ProvRate, SiteWeek, Stats
@@ -81,19 +86,29 @@
 ### app/src/main/kotlin/com/sajed/articlestudio/schema/
 - Engine.kt (113): SchemaForm, KpiRow, SchemaRow
 - Schema.kt (117): FieldType, Field, Kpi, ModuleSchema, SchemaRules, Schemas
+### app/src/main/kotlin/com/sajed/articlestudio/social/
+- Platforms.kt (22): PlatformSpec, Platforms
+- Publishers.kt (122): ShareException, ShareResult, Post, SocialPublisher, extraOf, JsonObject.s, TelegramPublisher +1
+- Recipes.kt (72): RecipeRules, RecipeStore
+- ShareRunner.kt (171): HookSource, ShareWriter, ShareNotifier, ShareRunner, WebSessionPublisher
+- ShareStore.kt (69): ShareStore
+- ShareText.kt (104): ShareText, ShareRules
+- ShareWorker.kt (63): ShareScheduler, ShareEntry, ShareWorker
+- SocialModule.kt (22): SocialModule
+- WebAutomator.kt (154): AutoOutcome, WebAutomator
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/
 - Components.kt (117): Modifier.focusRing, IconBtn, PrimaryButton, AppChip, Panel, LiveBar
 - Motion.kt (55): Modifier.stagger, AmbientBackground
 - Prefs.kt (33): UiPrefs, LiveStatus
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (341): HomeScreen
+- HomeScreen.kt (342): HomeScreen
 - HomeViewModel.kt (168): NodeState, NodeUi, BallPass, RowUi, SiteCardUi, HomeUiState, HomeViewModel
 - PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
 - Icons.kt (55): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
-- AppNav.kt (140): AppNav
+- AppNav.kt (144): AppNav
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
 - Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
 - Export.kt (338): ExportViewModel, ExportScreen, pubModeLabel
@@ -101,6 +116,7 @@
 - Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (449): SiteStats, SiteForms, SitesViewModel, SitesScreen
+- Social.kt (338): SocialViewModel, SocialScreen, SocialLoginScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -121,7 +137,7 @@
 - file_paths.xml (6)
 ### app/src/test/kotlin/com/sajed/articlestudio/
 - CoreTest.kt (39): CoreTest
-- MigrationTest.kt (62): MigrationTest
+- MigrationTest.kt (70): MigrationTest
 ### app/src/test/kotlin/com/sajed/articlestudio/engine/
 - AutoRunTest.kt (40): AutoRunTest
 - EngineTest.kt (83): EngineTest
@@ -140,9 +156,11 @@
 - SiteProfilerTest.kt (51): SiteProfilerTest
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
+### app/src/test/kotlin/com/sajed/articlestudio/social/
+- ShareTest.kt (262): ShareTest
 ### docs/
 - publishing.md (20)
-- repo-map.md (40)
+- repo-map.md (44)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 ### tools/media/
@@ -150,4 +168,8 @@
 - common.py (104): font_css, svg, t, rect, backdrop, mark, pill +2
 ### tools/promo/
 - README.md (2)
+### tools/social-test/
+- package-lock.json (544)
+- package.json (2)
+- recipes.test.js (108): page, sub, run, runAndWait, fast
 <!-- repomap:auto:end -->
