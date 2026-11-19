@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.play.auth)
     implementation(libs.work)
+    implementation(libs.webkit)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.room.testing)

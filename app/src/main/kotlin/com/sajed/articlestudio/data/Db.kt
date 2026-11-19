@@ -145,12 +145,21 @@ object Migrations {
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_reviews_article_id ON reviews (article_id)")
         }
     }
-    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4, M4_5)
+    val M5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS social_accounts (id TEXT NOT NULL, platform TEXT NOT NULL, label TEXT NOT NULL, enabled INTEGER NOT NULL, daily_cap INTEGER NOT NULL, gap_min INTEGER NOT NULL, win_from INTEGER NOT NULL, win_to INTEGER NOT NULL, site_ids TEXT NOT NULL, status TEXT NOT NULL, status_note TEXT NOT NULL, last_ok_at INTEGER NOT NULL, extra TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(id))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS share_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, article_id INTEGER NOT NULL, site_id TEXT NOT NULL, account_id TEXT NOT NULL, platform TEXT NOT NULL, url TEXT NOT NULL, title TEXT NOT NULL, text TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL, run_at INTEGER NOT NULL, done_at INTEGER NOT NULL, error TEXT NOT NULL, post_url TEXT NOT NULL, created_at INTEGER NOT NULL)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_share_jobs_article_id_account_id ON share_jobs (article_id, account_id)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_share_jobs_status_run_at ON share_jobs (status, run_at)")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4, M4_5, M5_6)
 }
 
-@Database(entities = [ArticleEntity::class, JobEntity::class, ReviewEntity::class], version = 5, exportSchema = true)
+@Database(entities = [ArticleEntity::class, JobEntity::class, ReviewEntity::class, SocialAccountEntity::class, ShareJobEntity::class], version = 6, exportSchema = true)
 abstract class AppDb : RoomDatabase() {
     abstract fun articles(): ArticleDao
     abstract fun jobs(): JobDao
     abstract fun reviews(): ReviewDao
+    abstract fun social(): SocialDao
 }

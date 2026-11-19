@@ -1,0 +1,1 @@
+{ "name": "social-recipes-test", "private": true, "scripts": { "test": "node --test" }, "devDependencies": { "jsdom": "^26.0.0" } }

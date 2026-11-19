@@ -58,4 +58,12 @@ class MigrationTest {
         db.execSQL("INSERT INTO reviews (article_id, site_id, title, remote_url, published_at, words, provider, auto, metrics, flags, rating, tags, notes, reviewed_at) VALUES (1, 'default', 't', '', 1, 1, 'g', 60, '{}', '', 0, '', '', 0)")
         db.query("SELECT COUNT(*) FROM reviews").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
+
+    @Test fun migrate5To6CreatesSocialTables() {
+        helper.createDatabase("t6", 5).close()
+        val db = helper.runMigrationsAndValidate("t6", 6, true, *Migrations.ALL)
+        db.execSQL("INSERT INTO social_accounts (id, platform, label, enabled, daily_cap, gap_min, win_from, win_to, site_ids, status, status_note, last_ok_at, extra, created_at) VALUES ('a','x','x',1,3,20,8,23,'','ok','',0,'{}',1)")
+        db.execSQL("INSERT INTO share_jobs (article_id, site_id, account_id, platform, url, title, text, status, attempts, run_at, done_at, error, post_url, created_at) VALUES (1,'d','a','x','u','t','','pending',0,1,0,'','',1)")
+        db.query("SELECT COUNT(*) FROM share_jobs").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+    }
 }
