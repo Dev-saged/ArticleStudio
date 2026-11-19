@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "platforms": {
+    "x": {
+      "variants": [
+        {
+          "name": "intent",
+          "url": "https://x.com/intent/post?text={text_enc}",
+          "login": { "urlRegex": "/i/flow/login|/login", "selectors": ["input[name=password]"] },
+          "steps": [
+            { "op": "type", "name": "محرر المنشور", "sel": ["[data-testid=tweetTextarea_0]", "div[role=textbox]"], "value": "{text}", "ifEmpty": true, "ms": 25000 },
+            { "op": "sleep", "ms": 1200 },
+            { "op": "click", "name": "زر النشر", "sel": ["[data-testid=tweetButton]", "[data-testid=tweetButtonInline]"], "text": "^(Post|Tweet|نشر)$", "final": true, "ms": 15000 }
+          ]
+        }
+      ]
+    },
+    "threads": {
+      "variants": [
+        {
+          "name": "intent",
+          "url": "https://www.threads.com/intent/post?text={text_enc}",
+          "login": { "urlRegex": "/login", "selectors": ["input[type=password]"] },
+          "steps": [
+            { "op": "type", "name": "محرر المنشور", "sel": ["div[contenteditable=true]", "div[role=textbox]", "textarea"], "value": "{text}", "ifEmpty": true, "ms": 25000 },
+            { "op": "sleep", "ms": 1000 },
+            { "op": "click", "name": "زر النشر", "text": "^(Post|نشر)$", "final": true, "ms": 15000 }
+          ]
+        }
+      ]
+    },
+    "linkedin": {
+      "variants": [
+        {
+          "name": "feed-share",
+          "url": "https://www.linkedin.com/feed/?shareActive=true&text={text_enc}",
+          "login": { "urlRegex": "/login|/uas/|/checkpoint", "selectors": ["input[name=session_password]"] },
+          "steps": [
+            { "op": "type", "name": "محرر المنشور", "sel": [".ql-editor[contenteditable=true]", "div[role=textbox]"], "value": "{text}", "ifEmpty": true, "ms": 30000 },
+            { "op": "sleep", "ms": 1200 },
+            { "op": "click", "name": "زر النشر", "sel": [".share-actions__primary-action"], "text": "^(Post|نشر)$", "final": true, "ms": 15000 }
+          ]
+        }
+      ]
+    },
+    "facebook": {
+      "variants": [
+        {
+          "name": "mobile-sharer",
+          "url": "https://m.facebook.com/sharer.php?u={url_enc}",
+          "login": { "urlRegex": "/login|/checkpoint|/recover", "selectors": ["input[name=pass]"] },
+          "steps": [
+            { "op": "type", "name": "نص المشاركة", "sel": ["textarea[name=xc_message]", "textarea", "[role=textbox]", "[contenteditable=true]"], "value": "{hook}", "ifEmpty": true, "ms": 25000 },
+            { "op": "sleep", "ms": 1200 },
+            { "op": "click", "name": "زر النشر", "sel": ["input[name=share]", "button[name=share]"], "text": "^(Post|Share|Share now|Post to Facebook|نشر|مشاركة|مشاركة الآن)$", "final": true, "ms": 15000 }
+          ]
+        },
+        {
+          "name": "desktop-sharer",
+          "url": "https://www.facebook.com/sharer/sharer.php?u={url_enc}",
+          "login": { "urlRegex": "/login|/checkpoint|/recover", "selectors": ["input[name=pass]"] },
+          "steps": [
+            { "op": "type", "name": "نص المشاركة", "sel": ["div[role=textbox]", "[contenteditable=true]", "textarea"], "value": "{hook}", "ifEmpty": true, "optional": true, "ms": 20000 },
+            { "op": "sleep", "ms": 1000 },
+            { "op": "click", "name": "زر النشر", "sel": ["[aria-label=Post]", "[aria-label=نشر]", "[aria-label='Share now']"], "text": "^(Post|Share now|نشر|مشاركة الآن)$", "final": true, "ms": 15000 }
+          ]
+        }
+      ]
+    }
+  }
+}

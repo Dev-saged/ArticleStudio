@@ -26,7 +26,7 @@
 - تداخل الواجهة مع الأشرطة: استعمل `EdgeBar` (`ui/nav/AppNav.kt`).
 - الأرقام معكوسة في الصور: استعمل `drawText` مع RLM (`ImageRenderer.textR`).
 - مقالات فاشلة كانت بلا `siteId` فتظهر في سبورت لايف؛ كل `ArticleEntity(` يجب أن يحمل `siteId`، و`start` بلا افتراضي.
-- أحمر كل المزودين: رمي `validate` (JSON التعبئة) كان يُحسب إخفاقاً على المزود. الآن `ValidationFail` لا يمس `stat`؛ والرسائل عبر `friendlyApi`؛ `ProviderStat.hard` للأحمر (401/403 فقط). LLM7 يحتاج `Bearer unused`.
+- أحمر المزودين: `ValidationFail` لا يمس `stat`؛ `ProviderStat.hard` (401/403 فقط)؛ LLM7 يحتاج `Bearer unused`.
 - توقيع الإصدار: `keystorePath` من البيئة لا `storeFile` داخل `create("release")`.
 
 - صور: `ProviderCatalog` بـ`kind="image"` ومفاتيحها `key.<id>`؛ Cloudflare: `ACCOUNT_ID:TOKEN`.
@@ -34,6 +34,10 @@
 - المتوقف عن النشر: `ExportManager.publishPending` (recheck)، زر «انشر المتوقف».
 - `JobRunner`: مهمة مستقلة لكل موقع (`runs[siteId]`)؛ `states`/`stateOf(id)`، `state` مجمّع؛ `Gate` (حد `GenSettings.parallel` 1..4)؛ `findByTitle` يمنع تكرار النشر عند إعادة المحاولة؛ `perSlot` للجدولة؛ `resume(siteId)`، `stop(siteId?)`.
 
+- مشاركة اجتماعية: `social/` (`ShareStore.enqueue` بعد `setRemote`، `ShareRunner.tick`، `ShareWorker`)؛ حسابات api (تيليغرام/بلوسكي بـ`SecretStore soc.<id>`) أو ويب (جلسة WebView لكل حساب، `WebAutomator` + `assets/social/recipes.json` تُحدَّث من GitHub). Room v6: `social_accounts`,`share_jobs`. شاشة `Social.kt`.
+- مشاركة: المهمة `running` المقطوعة تُركن `needs_you` ولا تُعاد (منعاً لنشر مكرر)؛ `login_required` يوقف الحساب؛ `ShareEntry` بأسماء `share*` لتفادي تعارض Hilt مع `AutoEntry.runner`.
+
 ## Open issues
+- لم تُجرَّب حياً وصفات فيسبوك/X/ثريدز/لينكدإن (محددات تخمينية + `recipe doctor` يسجل أزرار الصفحة عند الفشل).
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).
 - Media: `tools/media` (SVG) ؛ الفيديو من sajed-brain/video-identity/film.

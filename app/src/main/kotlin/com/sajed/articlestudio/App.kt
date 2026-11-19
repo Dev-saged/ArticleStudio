@@ -22,5 +22,6 @@ class App : Application() {
         super.onCreate()
         scope.launch { sites.sites.collect { l -> runCatching { AutoScheduler.sync(this@App, l) } } }
         scope.launch { delay(15_000); runCatching { auto.tick() } }
+        runCatching { com.sajed.articlestudio.social.ShareScheduler.ensure(this) }
     }
 }

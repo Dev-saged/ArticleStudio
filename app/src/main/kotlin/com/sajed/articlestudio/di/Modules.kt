@@ -26,4 +26,5 @@ object DataModule {
     @Provides fun articleDao(db: AppDb) = db.articles()
     @Provides fun jobDao(db: AppDb) = db.jobs()
     @Provides fun reviewDao(db: AppDb) = db.reviews()
+    @Provides fun socialDao(db: AppDb) = db.social()
 }
