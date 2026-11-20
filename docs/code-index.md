@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 133 ملفاً · 14957 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: package-lock.json 544 · 6.json 542 · Sites.kt 449 · Social.kt 441 · HomeScreen.kt 342 · Export.kt 338 · ShareTest.kt 332 · 5.json 322
+> 134 ملفاً · 15385 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: package-lock.json 544 · 6.json 542 · Sites.kt 449 · Social.kt 441 · ShareTest.kt 376 · HomeScreen.kt 342 · Export.kt 338 · 5.json 322
 
 ### ./
 - CLAUDE.md (44)
@@ -33,8 +33,8 @@
 ### app/src/main/assets/
 - studio-data.json (1)
 ### app/src/main/assets/social/
-- automation.js (129)
-- recipes.json (72)
+- automation.js (145)
+- recipes.json (303)
 ### app/src/main/kotlin/com/sajed/articlestudio/
 - App.kt (28): App
 - BrandConfig.kt (40): BrandConfig
@@ -87,15 +87,16 @@
 - Engine.kt (113): SchemaForm, KpiRow, SchemaRow
 - Schema.kt (117): FieldType, Field, Kpi, ModuleSchema, SchemaRules, Schemas
 ### app/src/main/kotlin/com/sajed/articlestudio/social/
-- Platforms.kt (22): PlatformSpec, Platforms
+- Platforms.kt (23): PlatformSpec, Platforms
 - Publishers.kt (147): ShareException, ShareResult, Post, SocialPublisher, extraOf, JsonObject.s, TelegramPublisher +1
 - Recipes.kt (72): RecipeRules, RecipeStore
-- ShareRunner.kt (162): HookSource, ShareWriter, ShareNotifier, ShareRunner, WebSessionPublisher
+- ShareMedia.kt (64): MediaSource, MediaRules, ShareMedia
+- ShareRunner.kt (174): HookSource, ShareWriter, ShareNotifier, ShareRunner, WebSessionPublisher
 - ShareStore.kt (130): ShareStore
 - ShareText.kt (104): ShareText, ShareRules
 - ShareWorker.kt (64): ShareScheduler, ShareEntry, ShareWorker
 - SocialModule.kt (22): SocialModule
-- WebAutomator.kt (137): AutoOutcome, WebAutomator
+- WebAutomator.kt (174): AutoOutcome, WebAutomator
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/
 - Components.kt (117): Modifier.focusRing, IconBtn, PrimaryButton, AppChip, Panel, LiveBar
 - Motion.kt (55): Modifier.stagger, AmbientBackground
@@ -157,10 +158,10 @@
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### app/src/test/kotlin/com/sajed/articlestudio/social/
-- ShareTest.kt (332): ShareTest
+- ShareTest.kt (376): ShareTest
 ### docs/
 - publishing.md (20)
-- repo-map.md (47)
+- repo-map.md (50)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 ### tools/media/
@@ -171,5 +172,5 @@
 ### tools/social-test/
 - package-lock.json (544)
 - package.json (2)
-- recipes.test.js (108): page, sub, run, runAndWait, fast
+- recipes.test.js (128): page, sub, run, runAndWait, fast
 <!-- repomap:auto:end -->
