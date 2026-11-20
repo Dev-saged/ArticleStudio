@@ -39,11 +39,12 @@ object ShareScheduler {
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-interface ShareEntry { fun shareRunner(): ShareRunner; fun shareDao(): SocialDao; fun shareNotifier(): ShareNotifier }
+interface ShareEntry { fun shareRunner(): ShareRunner; fun shareDao(): SocialDao; fun shareNotifier(): ShareNotifier; fun shareStore(): ShareStore }
 
 class ShareWorker(private val ctx: Context, p: WorkerParameters) : CoroutineWorker(ctx, p) {
     override suspend fun doWork(): Result {
         val e = EntryPointAccessors.fromApplication(ctx, ShareEntry::class.java)
+        runCatching { e.shareStore().catchUp() }
         val now = System.currentTimeMillis()
         if (e.shareDao().due(now, 1).isEmpty()) return Result.success()
         runCatching { setForeground(info()) }

@@ -136,24 +136,15 @@ class ShareRunner(
 /** ناشر الويب: يجرّب نسخ وصفة المنصة بالترتيب؛ انتهاء الجلسة يوقف فوراً، وتغيّر الواجهة ينتقل للنسخة التالية. */
 @Singleton
 class WebSessionPublisher @Inject constructor(private val automator: WebAutomator, private val recipes: RecipeStore) : SocialPublisher {
-    private fun loginOf(v: kotlinx.serialization.json.JsonObject): Pair<String, List<String>> {
-        val l = v["login"] as? kotlinx.serialization.json.JsonObject
-        return (l?.get("urlRegex") as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty() to
-            ((l?.get("selectors") as? kotlinx.serialization.json.JsonArray)?.map { (it as kotlinx.serialization.json.JsonPrimitive).content }.orEmpty())
-    }
+    private fun spec(acc: SocialAccountEntity) = Platforms.of(acc.platform) ?: throw ShareException("rejected", "منصة غير معروفة")
 
     override suspend fun check(acc: SocialAccountEntity): String {
-        val v = recipes.variants(acc.platform).firstOrNull() ?: throw ShareException("rejected", "لا وصفة لهذه المنصة")
-        val (re, sel) = loginOf(v)
-        val home = Platforms.of(acc.platform)?.loginUrl ?: throw ShareException("rejected", "منصة غير معروفة")
-        return when (automator.checkLogin(automator.profileName(acc.id), home, re, sel)) {
-            true -> "الجلسة نشطة"
-            false -> throw ShareException("login_required", "الجلسة منتهية")
-            null -> throw ShareException("network", "تعذّر فتح الصفحة", retry = true)
-        }
+        if (!automator.hasSession(automator.profileName(acc.id), spec(acc))) throw ShareException("login_required", "لم أجد جلسة دخول: سجّل الدخول في الصفحة ثم اضغط «تم تسجيل الدخول»")
+        return "الجلسة نشطة"
     }
 
     override suspend fun share(acc: SocialAccountEntity, post: Post): ShareResult {
+        if (!automator.hasSession(automator.profileName(acc.id), spec(acc))) throw ShareException("login_required", "الجلسة منتهية")
         val vs = recipes.variants(acc.platform)
         if (vs.isEmpty()) throw ShareException("rejected", "لا وصفة لهذه المنصة")
         val vars = mapOf("text" to post.text, "hook" to post.hook, "url" to post.url)

@@ -14,6 +14,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -48,6 +49,17 @@ private suspend fun OkHttpClient.call(rq: Request): Pair<Int, JsonObject> {
     }
 }
 
+private fun tgFail(c: Int, b: JsonObject): Nothing {
+    val d = b.s("description")
+    when {
+        c == 401 -> throw ShareException("login_required", "تيليغرام: التوكن غير صحيح، انسخه من BotFather مرة أخرى")
+        c == 403 -> throw ShareException("rejected", "تيليغرام: البوت لا يملك صلاحية النشر هنا؛ أضفه مشرفاً في القناة (أو افتح محادثته أولاً إن كانت خاصة)")
+        c == 400 && d.contains("chat not found", true) -> throw ShareException("rejected", "تيليغرام: المعرّف غير صحيح أو البوت ليس في القناة")
+        c == 400 -> throw ShareException("rejected", "تيليغرام: ${d.take(90)}")
+    }
+    fail(c, "تيليغرام")
+}
+
 private fun fail(code: Int, what: String): Nothing = when {
     code == 401 || code == 403 -> throw ShareException("login_required", "$what: بيانات الدخول غير صالحة")
     code == 429 -> throw ShareException("rate", "$what: حد الطلبات، سيُعاد لاحقاً", retry = true)
@@ -59,9 +71,22 @@ class TelegramPublisher(private val http: OkHttpClient, private val secrets: Sec
     private fun token(acc: SocialAccountEntity) = secrets.get("soc.${acc.id}").ifBlank { throw ShareException("login_required", "التوكن غير محفوظ") }
 
     override suspend fun check(acc: SocialAccountEntity): String {
-        val (c, b) = http.call(Request.Builder().url("$base/bot${token(acc)}/getMe").build())
-        if (c != 200) fail(c, "تيليغرام")
-        return "البوت @" + (b["result"] as? JsonObject)?.s("username").orEmpty()
+        val t = token(acc)
+        val (c, b) = http.call(Request.Builder().url("$base/bot$t/getMe").build())
+        if (c != 200) tgFail(c, b)
+        val me = b["result"] as? JsonObject
+        val chat = extraOf(acc).s("chat").ifBlank { throw ShareException("rejected", "معرّف المحادثة أو القناة ناقص") }
+        val (cc, cb) = http.call(Request.Builder().url("$base/bot$t/getChat".toHttpUrl().newBuilder().addQueryParameter("chat_id", chat).build()).build())
+        if (cc != 200) tgFail(cc, cb)
+        val type = (cb["result"] as? JsonObject)?.s("type").orEmpty()
+        if (type == "channel") {
+            val uid = me?.get("id")?.jsonPrimitive?.contentOrNull.orEmpty()
+            val (mc, mb) = http.call(Request.Builder().url("$base/bot$t/getChatMember".toHttpUrl().newBuilder().addQueryParameter("chat_id", chat).addQueryParameter("user_id", uid).build()).build())
+            if (mc != 200) tgFail(mc, mb)
+            val st = (mb["result"] as? JsonObject)?.s("status").orEmpty()
+            if (st != "administrator" && st != "creator") throw ShareException("rejected", "تيليغرام: البوت في القناة لكنه ليس مشرفاً؛ امنحه صلاحية نشر الرسائل")
+        }
+        return "البوت @" + me?.s("username").orEmpty() + " جاهز للنشر في " + chat
     }
 
     override suspend fun share(acc: SocialAccountEntity, post: Post): ShareResult {
@@ -69,7 +94,7 @@ class TelegramPublisher(private val http: OkHttpClient, private val secrets: Sec
         val chat = extraOf(acc).s("chat").ifBlank { throw ShareException("rejected", "معرّف المحادثة أو القناة ناقص") }
         val body = buildJsonObject { put("chat_id", chat); put("text", text); put("disable_web_page_preview", false) }
         val (c, b) = http.call(Request.Builder().url("$base/bot${token(acc)}/sendMessage").post(body.toString().toRequestBody(JSON)).build())
-        if (c != 200) fail(c, "تيليغرام")
+        if (c != 200) tgFail(c, b)
         val chatUser = ((b["result"] as? JsonObject)?.get("chat") as? JsonObject)?.s("username").orEmpty()
         val id = (b["result"] as? JsonObject)?.get("message_id")?.jsonPrimitive?.contentOrNull.orEmpty()
         return ShareResult(if (chatUser.isNotEmpty() && id.isNotEmpty()) "https://t.me/$chatUser/$id" else "")

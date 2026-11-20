@@ -37,6 +37,9 @@
 - مشاركة اجتماعية: `social/` (`ShareStore.enqueue` بعد `setRemote`، `ShareRunner.tick`، `ShareWorker`)؛ حسابات api (تيليغرام/بلوسكي بـ`SecretStore soc.<id>`) أو ويب (جلسة WebView لكل حساب، `WebAutomator` + `assets/social/recipes.json` تُحدَّث من GitHub). Room v6: `social_accounts`,`share_jobs`. شاشة `Social.kt`.
 - مشاركة: المهمة `running` المقطوعة تُركن `needs_you` ولا تُعاد (منعاً لنشر مكرر)؛ `login_required` يوقف الحساب؛ `ShareEntry` بأسماء `share*` لتفادي تعارض Hilt مع `AutoEntry.runner`.
 
+- مشاركة v0.14.1: تحقق جلسة الويب بالكوكيز (`WebAutomator.hasSession` + `PlatformSpec.cookies`: x auth_token، facebook c_user+xs، threads sessionid، linkedin li_at) لا بفتح صفحة الدخول (كان regex الدخول يطابق رابط الفحص نفسه فتظهر «الجلسة منتهية» دائماً).
+- مشاركة: تيليغرام `tgFail` (401 توكن، 403/400 `rejected` لا `login_required`)، `check` يتحقق من getChat وصلاحية المشرف؛ `ShareStore.catchUp` (قديم غير مسجَّل، الأقدم أولاً ضمن السقف اليومي، مفتاح `prefs social/backfill`)، `shareNow`، `setCredentials`؛ حالة حساب `attention`؛ `SiteConfig.share` افتراضي true.
+
 ## Open issues
 - لم تُجرَّب حياً وصفات فيسبوك/X/ثريدز/لينكدإن (محددات تخمينية + `recipe doctor` يسجل أزرار الصفحة عند الفشل).
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).

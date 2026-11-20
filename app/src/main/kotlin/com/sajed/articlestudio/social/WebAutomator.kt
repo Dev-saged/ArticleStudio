@@ -123,30 +123,13 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
         withTimeoutOrNull(2_000) { d.await() }.orEmpty().trim('"').replace("\\\"", "\"").take(600)
     }
 
-    /** يفتح الصفحة المحددة ويتحقق أن الحساب مسجّل الدخول (لا وجود لنموذج دخول ولا تحويل إلى صفحة دخول). */
-    suspend fun checkLogin(profile: String, url: String, loginRegex: String, loginSelectors: List<String>, timeoutMs: Long = 40_000): Boolean? = mutex.withLock {
-        val done = CompletableDeferred<Boolean>()
-        var wv: WebView? = null
-        try {
-            withContext(Dispatchers.Main) {
-                val v = newWebView(ctx, profile).also { wv = it }
-                v.measure(android.view.View.MeasureSpec.makeMeasureSpec(412, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(892, android.view.View.MeasureSpec.EXACTLY))
-                v.layout(0, 0, 412, 892)
-                val re = if (loginRegex.isEmpty()) null else Regex(loginRegex, RegexOption.IGNORE_CASE)
-                v.webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, u: String) {
-                        if (done.isCompleted) return
-                        if (re != null && re.containsMatchIn(u)) { done.complete(false); return }
-                        view.evaluateJavascript("(function(){var s=${loginSelectors.map { "'" + it.replace("'", "\\'") + "'" }};for(var i=0;i<s.length;i++){try{if(document.querySelector(s[i]))return true}catch(e){}}return false})()") { r -> done.complete(r != "true") }
-                    }
-                }
-                v.loadUrl(url)
-            }
-            withTimeoutOrNull(timeoutMs) { done.await() }
-        } finally {
-            withContext(Dispatchers.Main) { runCatching { wv?.stopLoading(); wv?.destroy() } }
-            flush(profile)
-        }
+    /** هل توجد كوكيز جلسة الدخول لهذه المنصة في ملف تعريف الحساب؟ (يقرأ المخزن مباشرة بلا تحميل صفحة). */
+    fun hasSession(profile: String, spec: PlatformSpec): Boolean {
+        if (spec.cookies.isEmpty()) return true
+        flush(profile)
+        val cm = (if (multiProfile()) runCatching { ProfileStore.getInstance().getProfile(profile)?.cookieManager }.getOrNull() else null) ?: CookieManager.getInstance()
+        val parts = cm.getCookie(spec.cookieUrl).orEmpty().split(";").map { it.trim() }
+        return spec.cookies.all { n -> parts.any { it.startsWith("$n=") && it.length > n.length + 1 } }
     }
 
     suspend fun pause(ms: Long) = delay(ms)
