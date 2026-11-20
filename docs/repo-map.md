@@ -45,7 +45,13 @@
 
 - طابور المشاركة v0.16.0: أقسام لكل منصة (`SocialQueue.kt`: instagram، x، linkedin، facebook، threads، telegram، bluesky) بفاصل محفوظ لكل منصة (`ShareStore.gaps`، prefs `gap.<platform>`، 1/2/5/10/30 د). `publishNow(jobId)` و`publishAll(platform, gapMin)` يضعان `forced=1` (Room v7) فيتجاوز المشغّل السقف والفاصل والنافذة، وتُوزَّع `runAt` بالفاصل؛ `stopForced` يعيدها للقواعد. `ShareWorker` ينتظر المهمة التالية داخل نافذة 8 دقائق. تقسيم الواجهة: `Social.kt` (VM والشاشة)، `SocialQueue.kt`، `SocialSheets.kt`؛ أسماء `SocialInput`/`jobStatusLabel` لتفادي تعارض `Articles.kt`.
 
+- واجهة v0.17.0 «خط الإنتاج» (`ui/pipe/`): `Kit.kt` (كل المكونات P*: PCard، PTop، PIcon، PRing، PSpark، PCta، PTabs، PChip، PSheet، PPager…)، `Home.kt` (PipeHome: مراحل المقال، توليد بنافذة، التشغيل الحي `RunScreen`، `NeedsScreen` للجرس)، `Articles.kt` (ArticlesHub: قائمة بفلاتر وصفحات 20 + لوحة أعمدة + `ArticleDetail` + `PublishProgress`)، `Platforms.kt` (PlatformsHub، PlatformPage بتبويبات وصفحات من `ShareStore.page`، PlatformSettings)، `More.kt`، `PipeViewModel` (Overview: عدادات، `PlatformSum` بمنحنى أسبوعي، `NeedItem`). التنقل `nav/AppNav.kt`: 4 تبويبات (line، articles?f=، platforms?add=، more) + run، needs، plat/{id}?tab=، plat/{id}/settings، login/{id}، sites، providers، publish، insights، test؛ شريط سفلي عائم `PillNav`.
+- أُزيلت الواجهة القديمة: `HomeScreen.kt`، `PitchBoard.kt`، `SocialQueue.kt`، `SocialScreen`، `ArticlesScreen` (بقيت ViewModels). أيقونة Play لا تنعكس في RTL. نص مختلط: اعزل الأرقام فقط (`${n.toString().ltr()}`) لا الجملة كلها.
+- تحقق بصري: `PipeLookTest` (Roborazzi + Robolectric NATIVE) يرسم صوراً في `app/build/outputs/roborazzi/`.
+- النشر: `ua: desktop` في الوصفة يشغّل WebView بمتصفح سطح المكتب 1280×900 (لينكدإن وإنستغرام؛ `PlatformSpec.desktop` لصفحة الدخول أيضاً)؛ لينكدإن 3 نسخ (feed، share-offsite، post/new)؛ `automation.js`: beforeinput ثم insertText ثم لصق ClipboardEvent ثم textContent، وscrollIntoView قبل النقر، و`waitGone` اختياري.
+
 ## Open issues
+- تقويم المقالات (اقترح في التصميم) لم يُنفّذ: لا يُخزَّن موعد النشر على بلوجر لكل مقال.
 - لم تُجرَّب حياً وصفات فيسبوك/X/ثريدز/لينكدإن (محددات تخمينية + `recipe doctor` يسجل أزرار الصفحة عند الفشل).
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).
 - Media: `tools/media` (SVG) ؛ الفيديو من sajed-brain/video-identity/film.

@@ -55,14 +55,23 @@
     var sel = window.getSelection(); var range = document.createRange();
     range.selectNodeContents(el); sel.removeAllRanges(); sel.addRange(range);
     var ok = false;
+    try { el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: value })); } catch (e) {}
     try { ok = document.execCommand('insertText', false, value); } catch (e) {}
     if (!ok || norm(txt(el)).length === 0) {
+      // محررات Draft/Lexical/Quill تقبل اللصق حين ترفض الإدراج المباشر
+      try {
+        var dt = new DataTransfer(); dt.setData('text/plain', value);
+        el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
+      } catch (e) {}
+    }
+    if (norm(txt(el)).length === 0) {
       el.textContent = value;
       el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
     }
   }
 
   function click(el) {
+    try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
     ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(function (t) {
       el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
     });
@@ -100,7 +109,7 @@
         if (st.op === 'waitGone') {
           var end = Date.now() + (st.ms || 15000), gone = false;
           while (Date.now() < end) { if (!find(st)) { gone = true; break; } await sleep(250); }
-          if (!gone) return report({ s: 'fail', code: 'ui_changed', msg: 'لم يختفِ العنصر المتوقع ' + (st.name || ''), diag: diag() });
+          if (!gone && !st.optional) return report({ s: 'fail', code: 'ui_changed', msg: 'لم يختفِ العنصر المتوقع ' + (st.name || ''), diag: diag() });
           continue;
         }
         if (st.op === 'attach') {

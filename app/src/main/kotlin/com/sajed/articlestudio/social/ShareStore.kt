@@ -150,5 +150,19 @@ class ShareStore @Inject constructor(
     /** يوقف النشر الفوري لمنصة: ما لم يُنشر يعود لقواعد الحساب (سقف/فاصل/نافذة). */
     suspend fun stopForced(platform: String) = dao.unforce(platform)
 
+    val stats = dao.observeStats()
+    val needs = dao.observeAllNeeds()
+    fun doneSince(since: Long) = dao.observeDoneSince(since)
+    fun ofArticle(articleId: Long) = dao.observeOfArticle(articleId)
+    /** صفحة من منشورات منصة: tab 0 منتظرة، 1 تحتاجك، 2 السجل. */
+    fun page(platform: String, tab: Int, page: Int, size: Int = PAGE) = when (tab) {
+        1 -> dao.observeNeeds(platform, size, page * size)
+        2 -> dao.observeHistory(platform, size, page * size)
+        else -> dao.observeWaiting(platform, size, page * size)
+    }
+    suspend fun setText(jobId: Long, text: String) = dao.setText(jobId, text.trim().take(4000))
+
     suspend fun skip(jobId: Long) { dao.job(jobId)?.let { dao.updateJob(it.copy(status = "skipped")) } }
+
+    companion object { const val PAGE = 20 }
 }

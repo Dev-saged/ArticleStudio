@@ -44,7 +44,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     sourceSets { getByName("debug").assets.srcDir("$projectDir/schemas") }
-    testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true } }
+    testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true; all { it.systemProperty("roborazzi.test.record", "true") } } }
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
@@ -80,4 +80,9 @@ dependencies {
     testImplementation(libs.room.testing)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    debugImplementation(libs.compose.ui.manifest)
 }

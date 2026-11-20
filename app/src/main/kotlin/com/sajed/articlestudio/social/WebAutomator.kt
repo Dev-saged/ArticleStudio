@@ -46,7 +46,13 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
     fun profileName(accountId: String) = "acc_" + accountId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
 
     @SuppressLint("SetJavaScriptEnabled")
-    fun newWebView(context: Context, profile: String): WebView {
+    /** متصفح سطح المكتب: واجهات بعض المنصات (لينكدإن، إنستغرام) أكثر ثباتاً واكتمالاً فيه. */
+    fun desktopUa(base: String): String {
+        val chrome = Regex("Chrome/([\\d.]+)").find(base)?.groupValues?.get(1) ?: "131.0.0.0"
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chrome Safari/537.36"
+    }
+
+    fun newWebView(context: Context, profile: String, desktop: Boolean = false): WebView {
         val wv = WebView(context)
         if (multiProfile()) runCatching {
             ProfileStore.getInstance().getOrCreateProfile(profile)
@@ -56,6 +62,7 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
             javaScriptEnabled = true; domStorageEnabled = true; databaseEnabled = true
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             userAgentString = userAgentString.replace("; wv", "").replace(Regex("Version/\\d+\\.\\d+ "), "")
+            if (desktop) { userAgentString = desktopUa(userAgentString); useWideViewPort = true; loadWithOverviewMode = true; builtInZoomControls = true; displayZoomControls = false }
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
@@ -90,11 +97,13 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
             val recipe = variant.toString()
             val varsJson = AppJson.encodeToString(kotlinx.serialization.builtins.MapSerializer(kotlinx.serialization.serializer<String>(), kotlinx.serialization.serializer<String>()), vars)
             withContext(Dispatchers.Main) {
-                val v = newWebView(ctx, profile).also { wv = it }
+                val desk = variant["ua"]?.jsonPrimitive?.contentOrNull == "desktop"
+                val v = newWebView(ctx, profile, desk).also { wv = it }
                 v.addJavascriptInterface(Bridge(done) { clickedFinal.set(true) }, "AS")
                 v.onResume(); v.resumeTimers()
-                v.measure(android.view.View.MeasureSpec.makeMeasureSpec(412, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(892, android.view.View.MeasureSpec.EXACTLY))
-                v.layout(0, 0, 412, 892)
+                val (w, h) = if (desk) 1280 to 900 else 412 to 892
+                v.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY))
+                v.layout(0, 0, w, h)
                 var started = false
                 v.webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, u: String) {

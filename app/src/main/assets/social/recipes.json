@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "platforms": {
     "x": {
       "variants": [
@@ -85,10 +85,120 @@
     "linkedin": {
       "variants": [
         {
-          "name": "feed-share",
+          "name": "desktop-feed",
+          "ua": "desktop",
           "url": "https://www.linkedin.com/feed/?shareActive=true&text={text_enc}",
           "login": {
-            "urlRegex": "/login|/uas/|/checkpoint",
+            "urlRegex": "/login|/uas/|/checkpoint|/authwall",
+            "selectors": [
+              "input[name=session_password]"
+            ]
+          },
+          "steps": [
+            {
+              "op": "click",
+              "name": "ابدأ منشوراً",
+              "sel": [
+                "button.share-box-feed-entry__trigger",
+                "button[aria-label*='Start a post' i]"
+              ],
+              "text": "^(Start a post|ابدأ منشوراً|ابدأ منشور)$",
+              "optional": true,
+              "ms": 6000
+            },
+            {
+              "op": "type",
+              "name": "محرر المنشور",
+              "sel": [
+                ".ql-editor[contenteditable=true]",
+                "div.share-creation-state__text-editor [contenteditable=true]",
+                "div[role=textbox][contenteditable=true]",
+                "[contenteditable=true]",
+                "textarea"
+              ],
+              "value": "{text}",
+              "ifEmpty": true,
+              "ms": 30000
+            },
+            {
+              "op": "sleep",
+              "ms": 2500
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                "button.share-actions__primary-action",
+                "button[data-control-name='share.post']",
+                ".share-box_actions button.artdeco-button--primary"
+              ],
+              "text": "^(Post|نشر|انشر)$",
+              "final": true,
+              "ms": 20000
+            },
+            {
+              "op": "waitGone",
+              "name": "نافذة المنشور",
+              "sel": [
+                ".share-creation-state__text-editor",
+                ".ql-editor[contenteditable=true]"
+              ],
+              "optional": true,
+              "ms": 12000
+            }
+          ]
+        },
+        {
+          "name": "desktop-offsite",
+          "ua": "desktop",
+          "url": "https://www.linkedin.com/sharing/share-offsite/?url={url_enc}",
+          "login": {
+            "urlRegex": "/login|/uas/|/checkpoint|/authwall",
+            "selectors": [
+              "input[name=session_password]"
+            ]
+          },
+          "steps": [
+            {
+              "op": "type",
+              "name": "تعليق المشاركة",
+              "sel": [
+                ".ql-editor[contenteditable=true]",
+                "div.share-creation-state__text-editor [contenteditable=true]",
+                "div[role=textbox][contenteditable=true]",
+                "[contenteditable=true]",
+                "textarea"
+              ],
+              "value": "{hook}",
+              "ifEmpty": true,
+              "optional": true,
+              "ms": 25000
+            },
+            {
+              "op": "sleep",
+              "ms": 2000
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                "button.share-actions__primary-action",
+                "button[data-control-name='share.post']",
+                ".share-box_actions button.artdeco-button--primary",
+                "button.share-actions__primary-action",
+                "button[type=submit]"
+              ],
+              "text": "^(Post|نشر|انشر)$",
+              "final": true,
+              "ms": 20000
+            }
+          ]
+        },
+        {
+          "name": "mobile-new",
+          "url": "https://www.linkedin.com/post/new/",
+          "login": {
+            "urlRegex": "/login|/uas/|/checkpoint|/authwall",
             "selectors": [
               "input[name=session_password]"
             ]
@@ -98,23 +208,21 @@
               "op": "type",
               "name": "محرر المنشور",
               "sel": [
-                ".ql-editor[contenteditable=true]",
-                "div[role=textbox]"
+                "textarea",
+                "div[role=textbox]",
+                "[contenteditable=true]"
               ],
               "value": "{text}",
               "ifEmpty": true,
-              "ms": 30000
+              "ms": 25000
             },
             {
               "op": "sleep",
-              "ms": 1200
+              "ms": 1500
             },
             {
               "op": "click",
               "name": "زر النشر",
-              "sel": [
-                ".share-actions__primary-action"
-              ],
               "text": "^(Post|نشر)$",
               "final": true,
               "ms": 15000
@@ -295,7 +403,8 @@
               "final": true,
               "ms": 15000
             }
-          ]
+          ],
+          "ua": "desktop"
         }
       ]
     }

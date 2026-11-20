@@ -126,6 +126,30 @@ interface SocialDao {
     @Query("UPDATE share_jobs SET forced = 0 WHERE platform = :platform AND status = 'pending' AND forced = 1")
     suspend fun unforce(platform: String)
 
+    @Query("SELECT platform, status, COUNT(*) AS n, MIN(run_at) AS next FROM share_jobs GROUP BY platform, status")
+    fun observeStats(): Flow<List<PlatformStat>>
+
+    @Query("SELECT platform, done_at AS doneAt FROM share_jobs WHERE status = 'done' AND done_at >= :since")
+    fun observeDoneSince(since: Long): Flow<List<DoneMark>>
+
+    @Query("SELECT * FROM share_jobs WHERE platform = :platform AND status IN ('pending','running') ORDER BY forced DESC, run_at ASC, id ASC LIMIT :limit OFFSET :offset")
+    fun observeWaiting(platform: String, limit: Int, offset: Int): Flow<List<ShareJobEntity>>
+
+    @Query("SELECT * FROM share_jobs WHERE platform = :platform AND status IN ('needs_you','failed') ORDER BY run_at DESC LIMIT :limit OFFSET :offset")
+    fun observeNeeds(platform: String, limit: Int, offset: Int): Flow<List<ShareJobEntity>>
+
+    @Query("SELECT * FROM share_jobs WHERE platform = :platform AND status IN ('done','skipped') ORDER BY done_at DESC, id DESC LIMIT :limit OFFSET :offset")
+    fun observeHistory(platform: String, limit: Int, offset: Int): Flow<List<ShareJobEntity>>
+
+    @Query("SELECT * FROM share_jobs WHERE status IN ('needs_you','failed') ORDER BY run_at DESC LIMIT 50")
+    fun observeAllNeeds(): Flow<List<ShareJobEntity>>
+
+    @Query("SELECT * FROM share_jobs WHERE article_id = :articleId")
+    fun observeOfArticle(articleId: Long): Flow<List<ShareJobEntity>>
+
+    @Query("UPDATE share_jobs SET text = :text WHERE id = :id AND status != 'done'")
+    suspend fun setText(id: Long, text: String)
+
     @Query("SELECT * FROM share_jobs WHERE article_id = :articleId")
     suspend fun jobsOfArticle(articleId: Long): List<ShareJobEntity>
 }
@@ -135,3 +159,9 @@ data class JobMark(val articleId: Long, val accountId: String, val status: Strin
 
 /** مقال منشور برابط عام، مرشح للمشاركة. */
 data class ShareCandidate(val id: Long, val title: String, @ColumnInfo(name = "site_id") val siteId: String, @ColumnInfo(name = "remote_url") val remoteUrl: String)
+
+/** عدد مهام منصة في حالة، وأقرب موعد. */
+data class PlatformStat(val platform: String, val status: String, val n: Int, val next: Long?)
+
+/** منشور تمّ (للمنحنى الأسبوعي). */
+data class DoneMark(val platform: String, val doneAt: Long)

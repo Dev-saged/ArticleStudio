@@ -125,3 +125,27 @@ test('إنستغرام: بلا صورة يفشل بوضوح ولا ينقر مش
   const r = await runAndWait(p, fast(recipes.platforms.instagram.variants[0]), vars);
   assert.equal(r.at(-1).s, 'fail'); assert.match(r.at(-1).msg, /صورة/); assert.ok(!r.some((x) => x.s === 'clicked_final'));
 });
+
+test('محرر يرفض الإدراج المباشر يقبل اللصق (Draft/Lexical)', async () => {
+  const p = page('<div role="textbox" data-testid="tweetTextarea_0" contenteditable="true"></div><button data-testid="tweetButton">Post</button>', 'https://x.com/intent/post');
+  const ed = p.w.document.querySelector('[role=textbox]');
+  let pasted = '';
+  ed.addEventListener('paste', (e) => { pasted = e.clipboardData.getData('text/plain'); ed.textContent = pasted; e.preventDefault(); });
+  p.w.DataTransfer = class { constructor() { this.d = {}; } setData(k, v) { this.d[k] = v; } getData(k) { return this.d[k]; } };
+  p.w.ClipboardEvent = class extends p.w.Event { constructor(t, o) { super(t, o); this.clipboardData = o.clipboardData; } };
+  const r = await runAndWait(p, fast(recipes.platforms.x.variants[0]));
+  assert.equal(r.at(-1).s, 'ok'); assert.match(pasted, /عنوان قوي/);
+});
+
+test('لينكدإن: كل النسخ صالحة، الأولى بمتصفح سطح المكتب', () => {
+  const v = recipes.platforms.linkedin.variants;
+  assert.ok(v.length >= 3); assert.equal(v[0].ua, 'desktop'); assert.equal(recipes.platforms.instagram.variants[0].ua, 'desktop');
+});
+
+test('لينكدإن (share-offsite): يكتب التعليق وينقر نشر', async () => {
+  const p = page('<div class="ql-editor" contenteditable="true"></div><button class="share-actions__primary-action">Post</button>', 'https://www.linkedin.com/sharing/share-offsite/');
+  let clicked = 0; p.w.document.querySelector('button').addEventListener('click', () => clicked++);
+  p.w.__target = p.w.document.querySelector('.ql-editor');
+  const r = await runAndWait(p, fast(recipes.platforms.linkedin.variants[1]));
+  assert.equal(r.at(-1).s, 'ok'); assert.equal(clicked, 1);
+});

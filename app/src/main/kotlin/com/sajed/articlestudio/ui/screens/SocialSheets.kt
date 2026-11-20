@@ -25,7 +25,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
@@ -38,31 +37,6 @@ import com.sajed.articlestudio.ui.AppChip
 import com.sajed.articlestudio.ui.PrimaryButton
 import com.sajed.articlestudio.ui.icons.Icons
 import com.sajed.articlestudio.ui.theme.AppTheme
-
-@Composable
-internal fun AccountCard(a: SocialAccountEntity, busy: Boolean, onCheck: () -> Unit, onLogin: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit, onTest: () -> Unit, onCreds: () -> Unit) {
-    val c = AppTheme.colors
-    val spec = Platforms.of(a.platform)
-    var confirmTest by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().background(c.surface, RoundedCornerShape(16.dp)).border(1.dp, c.line, RoundedCornerShape(16.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(a.label, style = MaterialTheme.typography.titleMedium, color = c.text)
-                Text("${spec?.name.orEmpty()} · ${if (spec?.isWeb == true) "جلسة دائمة" else "رمز دائم"} · سقف ${a.dailyCap}/يوم · فاصل ${a.gapMin} د", style = MaterialTheme.typography.bodySmall, color = c.muted)
-            }
-            Text(if (!a.enabled) "معطّل" else accStatus(a.status, spec?.isWeb == true), style = MaterialTheme.typography.labelLarge, color = if (a.enabled && a.status == "ok") c.text else c.red)
-        }
-        if (a.statusNote.isNotBlank()) Text(a.statusNote, style = MaterialTheme.typography.bodySmall, color = c.muted)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (spec?.isWeb == true) AppChip(if (a.status == "ok") "إعادة تسجيل الدخول" else "تسجيل الدخول", a.status != "ok", onLogin)
-            if (spec?.isWeb != true) AppChip("تعديل البيانات", a.status != "ok", onCreds)
-            AppChip("فحص الحساب", false, { if (!busy) onCheck() })
-            AppChip(if (confirmTest) "تأكيد: انشر الآن فعلاً" else "نشر تجريبي", confirmTest, { if (busy) Unit else if (confirmTest) { confirmTest = false; onTest() } else confirmTest = true })
-            AppChip(if (a.enabled) "تعطيل" else "تفعيل", false, onToggle)
-            AppChip("إعدادات", false, onEdit)
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
