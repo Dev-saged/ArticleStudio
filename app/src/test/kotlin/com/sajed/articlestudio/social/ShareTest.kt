@@ -60,17 +60,18 @@ class ShareTest {
         }
         db = Room.inMemoryDatabaseBuilder(ctx, AppDb::class.java).allowMainThreadQueries().build()
         sites = SiteStore(ctx)
-        sites.upsert(SiteConfig(id = "default", name = "رياضة", url = "https://b.example", share = true))
-        store = ShareStore(ctx, db.social(), sites, secrets)
+        sites.upsert(SiteConfig(id = "default", name = "رياضة", url = "https://b.example", share = true, pubState = "live"))
+        store = ShareStore(ctx, db.social(), sites, secrets, db.articles())
     }
     @After fun tearDown() { db.close(); server.shutdown() }
 
     private fun runner(pub: SocialPublisher, hooks: HookSource = object : HookSource { override suspend fun hooks(title: String, desc: String, labels: List<String>) = emptyList<String>() }) =
         ShareRunner(db.social(), db.articles(), hooks, { pub }, ShareNotifier(ApplicationProvider.getApplicationContext()), RunBus()).also { it.zone = ZoneId.of("UTC"); it.pauseBetweenMs = { 0 } }
 
+    private var seq = 0
     private fun article(title: String = "كيف حطم ميسي رقماً قياسياً جديداً في كأس العالم"): Long = runBlocking {
         val a = sampleArticle(title = title)
-        db.articles().upsert(ArticleEntity(jobId = 1, idx = 0, title = a.title, slug = a.slug, status = "exported", updatedAt = 1, data = AppJson.encodeToString(Article.serializer(), a), siteId = "default", remoteUrl = url))
+        db.articles().upsert(ArticleEntity(jobId = 1, idx = seq++, title = a.title, slug = a.slug, status = "exported", updatedAt = 1, data = AppJson.encodeToString(Article.serializer(), a), siteId = "default", remoteUrl = url))
     }
 
     private suspend fun account(platform: String = "telegram", cap: Int = 3, gap: Int = 20, extra: Map<String, String> = mapOf("chat" to "@c")) =
@@ -247,6 +248,75 @@ class ShareTest {
         val id = account(); store.enqueue(article(), "default", url, "ع", null, PubState.Live, now = 0)
         store.remove(id)
         assertNull(db.social().account(id)); assertEquals(0, db.social().pendingCount()); assertFalse(secrets.has("soc.$id"))
+    }
+
+    // تيليغرام: أخطاء واضحة
+    @Test fun telegramMapsForbiddenAndChatNotFoundToRejectedNotLogin() = runBlocking {
+        server.start()
+        server.enqueue(MockResponse().setResponseCode(403).setBody("""{"ok":false,"description":"Forbidden: bot is not a member of the channel chat"}"""))
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"ok":false,"description":"Bad Request: chat not found"}"""))
+        val acc = db.social().account(account("telegram"))!!
+        val p = TelegramPublisher(OkHttpClient(), secrets, server.url("").toString().trimEnd('/'))
+        val e1 = runCatching { p.share(acc, Post("x", "x", url)) }.exceptionOrNull() as ShareException
+        val e2 = runCatching { p.share(acc, Post("x", "x", url)) }.exceptionOrNull() as ShareException
+        assertEquals("rejected", e1.code); assertTrue(e1.message!!.contains("مشرف"))
+        assertEquals("rejected", e2.code); assertTrue(e2.message!!.contains("المعرّف"))
+    }
+
+    @Test fun telegramCheckRequiresAdminInChannels() = runBlocking {
+        server.start()
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"id":99,"username":"b_bot"}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"type":"channel"}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"status":"member"}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"id":99,"username":"b_bot"}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"type":"channel"}}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true,"result":{"status":"administrator"}}"""))
+        val acc = db.social().account(account("telegram"))!!
+        val p = TelegramPublisher(OkHttpClient(), secrets, server.url("").toString().trimEnd('/'))
+        assertEquals("rejected", (runCatching { p.check(acc) }.exceptionOrNull() as ShareException).code)
+        assertTrue(p.check(acc).contains("@b_bot"))
+    }
+
+    @Test fun setCredentialsUpdatesTargetAndSecretAndResetsStatus() = runBlocking {
+        val id = account("telegram"); db.social().setStatus(id, "needs_login", "x")
+        store.setCredentials(id, mapOf("chat" to "@new"), "newtok")
+        val a = db.social().account(id)!!
+        assertTrue(a.extra.contains("@new")); assertEquals("new", a.status); assertEquals("newtok", secrets.get("soc.$id"))
+        store.setCredentials(id, mapOf("chat" to ""), "")
+        assertTrue(db.social().account(id)!!.extra.contains("@new")); assertEquals("newtok", secrets.get("soc.$id"))
+    }
+
+    // السجل والنشر التلقائي للقديم
+    @Test fun catchUpQueuesOldestFirstWithinDailyCapAndNeverDuplicates() = runBlocking {
+        val id = account(cap = 2); val a1 = article("مقال أول"); val a2 = article("مقال ثان"); val a3 = article("مقال ثالث")
+        assertEquals(2, store.catchUp(now = 1_000_000, r = Random(1)))
+        assertEquals(listOf(a1, a2), db.social().articleIdsOf(id).sorted().take(2))
+        assertEquals(0, db.social().jobsOfArticle(a3).size)
+        assertEquals(0, store.catchUp(now = 1_100_000, r = Random(1)))
+        db.social().jobsOfArticle(a1).single().let { db.social().updateJob(it.copy(status = "done", doneAt = 1_200_000)) }
+        db.social().jobsOfArticle(a2).single().let { db.social().updateJob(it.copy(status = "done", doneAt = 1_210_000)) }
+        assertEquals(0, store.catchUp(now = 1_300_000, r = Random(1)))
+        assertEquals(1, store.catchUp(now = 1_300_000 + 24 * 3_600_000L, r = Random(1)))
+        assertEquals(1, db.social().jobsOfArticle(a3).size)
+    }
+
+    @Test fun catchUpHonorsSwitchesDraftAndLoginState() = runBlocking {
+        val id = account(cap = 3); article("مقال")
+        store.setBackfill(false); assertEquals(0, store.catchUp(now = 1_000_000)); store.setBackfill(true)
+        db.social().setStatus(id, "needs_login", "x"); assertEquals(0, store.catchUp(now = 1_000_000)); db.social().markOk(id, 1)
+        sites.upsert(sites.get("default").copy(pubState = "draft")); assertEquals(0, store.catchUp(now = 1_000_000))
+        sites.upsert(sites.get("default").copy(pubState = "live", share = false)); assertEquals(0, store.catchUp(now = 1_000_000))
+        sites.upsert(sites.get("default").copy(share = true)); assertEquals(1, store.catchUp(now = 1_000_000))
+    }
+
+    @Test fun shareNowQueuesOnceAndRequeuesFailures() = runBlocking {
+        account(); val art = article()
+        assertEquals(1, store.shareNow(art, now = 5_000)); assertEquals(0, store.shareNow(art, now = 6_000))
+        db.social().jobsOfArticle(art).single().let { db.social().updateJob(it.copy(status = "failed", error = "x")) }
+        assertEquals(1, store.shareNow(art, now = 7_000))
+        assertEquals("pending", db.social().jobsOfArticle(art).single().status)
+        db.social().jobsOfArticle(art).single().let { db.social().updateJob(it.copy(status = "done")) }
+        assertEquals(0, store.shareNow(art, now = 8_000))
     }
 
     // الوصفات

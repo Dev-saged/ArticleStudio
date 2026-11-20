@@ -110,6 +110,21 @@ interface SocialDao {
     @Query("DELETE FROM share_jobs WHERE account_id = :accountId")
     suspend fun deleteJobsOf(accountId: String)
 
+    @Query("SELECT COUNT(*) FROM share_jobs WHERE account_id = :accountId AND status IN ('pending','running')")
+    suspend fun pendingOf(accountId: String): Int
+
+    @Query("SELECT article_id FROM share_jobs WHERE account_id = :accountId")
+    suspend fun articleIdsOf(accountId: String): List<Long>
+
+    @Query("SELECT article_id AS articleId, account_id AS accountId, status FROM share_jobs")
+    fun observeMarks(): Flow<List<JobMark>>
+
     @Query("SELECT * FROM share_jobs WHERE article_id = :articleId")
     suspend fun jobsOfArticle(articleId: Long): List<ShareJobEntity>
 }
+
+/** حالة مشاركة مقال على حساب (للسجل المرئي). */
+data class JobMark(val articleId: Long, val accountId: String, val status: String)
+
+/** مقال منشور برابط عام، مرشح للمشاركة. */
+data class ShareCandidate(val id: Long, val title: String, @ColumnInfo(name = "site_id") val siteId: String, @ColumnInfo(name = "remote_url") val remoteUrl: String)

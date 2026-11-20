@@ -81,7 +81,7 @@ data class SiteConfig(
     val mode: String = "News",
     val schedule: Int = 0,
     val perSlot: Int = 1,
-    val share: Boolean = false,
+    val share: Boolean = true,
     val repo: String = "",
     val branch: String = "",
     val pubMode: String = "off",

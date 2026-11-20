@@ -50,6 +50,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.sajed.articlestudio.data.GitHubSettings
+import com.sajed.articlestudio.data.JobMark
+import com.sajed.articlestudio.data.ShareCandidate
+import com.sajed.articlestudio.engine.AppJson
+import com.sajed.articlestudio.engine.SiteStore
+import com.sajed.articlestudio.social.Post
+import com.sajed.articlestudio.social.ShareText
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import com.sajed.articlestudio.data.ShareJobEntity
 import com.sajed.articlestudio.data.SocialAccountEntity
 import com.sajed.articlestudio.data.SocialDao
@@ -80,11 +89,15 @@ import javax.inject.Inject
 class SocialViewModel @Inject constructor(
     private val store: ShareStore, private val dao: SocialDao, private val automator: WebAutomator, private val web: WebSessionPublisher,
     private val runner: ShareRunner, private val recipes: RecipeStore, private val gh: GitHubClient, private val ghs: GitHubSettings,
-    private val telegram: com.sajed.articlestudio.social.TelegramPublisher, private val bluesky: com.sajed.articlestudio.social.BlueskyPublisher,
+    private val sites: SiteStore, private val telegram: com.sajed.articlestudio.social.TelegramPublisher, private val bluesky: com.sajed.articlestudio.social.BlueskyPublisher,
     @dagger.hilt.android.qualifiers.ApplicationContext private val ctx: Context,
 ) : ViewModel() {
     val accounts = store.accounts
     val jobs = store.jobs
+    val marks = store.marks
+    val shareable = store.shareable
+    val backfill = store.backfill
+    val siteList = sites.sites
     private val _msg = MutableStateFlow("")
     val msg: StateFlow<String> = _msg.asStateFlow()
     private val _busy = MutableStateFlow(false)
@@ -115,12 +128,39 @@ class SocialViewModel @Inject constructor(
 
     fun check(a: SocialAccountEntity) = run {
         val spec = Platforms.of(a.platform)
-        val pub: com.sajed.articlestudio.social.SocialPublisher = when (a.platform) { "telegram" -> telegram; "bluesky" -> bluesky; else -> web }
-        try { pub.check(a).also { dao.markOk(a.id, System.currentTimeMillis()) } } catch (e: ShareException) {
-            if (e.code == "login_required") dao.setStatus(a.id, "needs_login", e.message.orEmpty())
+        try { publisher(a).check(a).also { store.markLoggedIn(a.id) } } catch (e: ShareException) {
+            dao.setStatus(a.id, if (e.code == "login_required") "needs_login" else "attention", e.message.orEmpty())
             "${spec?.name}: ${e.message}"
         }
     }
+
+    private fun publisher(a: SocialAccountEntity): com.sajed.articlestudio.social.SocialPublisher = when (a.platform) { "telegram" -> telegram; "bluesky" -> bluesky; else -> web }
+
+    fun testPost(a: SocialAccountEntity) = run {
+        val spec = Platforms.of(a.platform) ?: return@run "منصة غير معروفة"
+        val siteUrl = sites.sites.value.firstOrNull { it.share }?.url?.takeIf { it.startsWith("http") } ?: "https://example.com"
+        val text = ShareText.compose(spec, "تجربة نشر تلقائي من مولد المقالات", siteUrl, emptyList())
+        try {
+            val r = publisher(a).share(a, Post(text, "تجربة نشر تلقائي من مولد المقالات", siteUrl))
+            store.markLoggedIn(a.id)
+            "تم النشر التجريبي على ${a.label}" + if (r.postUrl.isNotBlank()) "\n${r.postUrl}" else ""
+        } catch (e: ShareException) {
+            dao.setStatus(a.id, if (e.code == "login_required") "needs_login" else "attention", e.message.orEmpty())
+            e.message.orEmpty() + if (e.diag.isNotBlank()) "\n" + e.diag.take(400) else ""
+        }
+    }
+
+    fun saveCreds(a: SocialAccountEntity, extra: Map<String, String>, secret: String) = run {
+        store.setCredentials(a.id, extra, secret)
+        val fresh = dao.account(a.id) ?: return@run "الحساب غير موجود"
+        try { publisher(fresh).check(fresh).also { store.markLoggedIn(a.id) } } catch (e: ShareException) {
+            dao.setStatus(a.id, if (e.code == "login_required") "needs_login" else "attention", e.message.orEmpty()); e.message.orEmpty()
+        }
+    }
+
+    fun setBackfill(v: Boolean) = store.setBackfill(v)
+    fun setSiteShare(id: String, v: Boolean) = sites.upsert(sites.get(id).copy(share = v))
+    fun shareNow(articleId: Long) = run { if (store.shareNow(articleId) > 0) "أُضيف للطابور وسيُنشر خلال دقائق" else "لا حساب مفعّل أو المقال مسجّل مسبقاً" }
 
     fun confirmLogin(a: SocialAccountEntity, done: () -> Unit) {
         if (_busy.value) return
@@ -144,7 +184,8 @@ class SocialViewModel @Inject constructor(
 private fun shareIntent(c: Context, text: String) = c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "مشاركة يدوية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
 private fun statusLabel(s: String) = when (s) { "pending" -> "بالانتظار"; "running" -> "قيد الإرسال"; "done" -> "تمّت"; "failed" -> "فشلت"; "needs_you" -> "تحتاج تدخلك"; "skipped" -> "تُخطّيت"; else -> s }
-private fun accStatus(s: String) = when (s) { "ok" -> "جاهز"; "needs_login" -> "يلزم الدخول"; "new" -> "لم يُفحص"; else -> s }
+private fun accStatus(s: String, web: Boolean) = when (s) { "ok" -> "جاهز"; "needs_login" -> if (web) "يلزم الدخول" else "البيانات غير صالحة"; "attention" -> "يحتاج ضبطاً"; "new" -> "لم يُفحص"; else -> s }
+private fun extraVal(a: SocialAccountEntity, k: String) = runCatching { AppJson.parseToJsonElement(a.extra).jsonObject[k]?.jsonPrimitive?.contentOrNull.orEmpty() }.getOrDefault("")
 
 @Composable
 fun SocialScreen(onBack: () -> Unit, onLogin: (String) -> Unit, vm: SocialViewModel = hiltViewModel()) {
@@ -157,6 +198,11 @@ fun SocialScreen(onBack: () -> Unit, onLogin: (String) -> Unit, vm: SocialViewMo
     var tab by remember { mutableStateOf(0) }
     var adding by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SocialAccountEntity?>(null) }
+    var creds by remember { mutableStateOf<SocialAccountEntity?>(null) }
+    val shareable by vm.shareable.collectAsStateWithLifecycle(emptyList())
+    val marks by vm.marks.collectAsStateWithLifecycle(emptyList())
+    val backfill by vm.backfill.collectAsStateWithLifecycle()
+    val siteList by vm.siteList.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().background(c.bg).statusBarsPadding()) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconBtn(Icons.Back, "رجوع", onBack)
@@ -165,22 +211,31 @@ fun SocialScreen(onBack: () -> Unit, onLogin: (String) -> Unit, vm: SocialViewMo
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AppChip("الحسابات (${accounts.size})", tab == 0, { tab = 0 })
-            AppChip("الطابور (${jobs.count { it.status == "pending" || it.status == "needs_you" }})", tab == 1, { tab = 1 })
-            AppChip("الوصفات", tab == 2, { tab = 2 })
+            AppChip("المقالات (${shareable.size})", tab == 1, { tab = 1 })
+            AppChip("الطابور (${jobs.count { it.status == "pending" || it.status == "needs_you" }})", tab == 2, { tab = 2 })
+            AppChip("الإعدادات", tab == 3, { tab = 3 })
         }
         if (msg.isNotEmpty()) Text(msg, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = c.text)
         when (tab) {
             0 -> LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (accounts.isEmpty()) item { Text("أضف حساباً: تيليغرام وبلوسكي برمز دائم، وفيسبوك وX وثريدز ولينكدإن بجلسة دخول تُحفظ داخل التطبيق.", style = MaterialTheme.typography.bodyMedium, color = c.muted) }
-                items(accounts, key = { it.id }) { a -> AccountCard(a, busy, { vm.check(a) }, { onLogin(a.id) }, { vm.toggle(a) }, { editing = a }) }
-                item { Text("لكل موقع مفتاح «شارك المقال على حساباتي» في إعدادات الموقع. المسودات لا تُشارك لأن رابطها غير عام.", style = MaterialTheme.typography.bodySmall, color = c.muted) }
+                items(accounts, key = { it.id }) { a -> AccountCard(a, busy, { vm.check(a) }, { onLogin(a.id) }, { vm.toggle(a) }, { editing = a }, { vm.testPost(a) }, { creds = a }) }
+                item { Text("المشاركة التلقائية مفعّلة لكل موقع افتراضياً (تغييرها من تبويب الإعدادات). المسودات لا تُشارك لأن رابطها غير عام.", style = MaterialTheme.typography.bodySmall, color = c.muted) }
             }
-            1 -> LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            1 -> ArticlesTab(shareable, accounts, marks, busy, { vm.shareNow(it) }, Modifier.weight(1f))
+            2 -> LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { PrimaryButton("نفّذ المستحق الآن", Icons.Play, { vm.runNow() }, Modifier.fillMaxWidth(), enabled = !busy) }
                 if (jobs.isEmpty()) item { Text("تظهر هنا كل مشاركة تُجدول بعد نشر مقال.", style = MaterialTheme.typography.bodyMedium, color = c.muted) }
                 items(jobs, key = { it.id }) { j -> JobCard(j, accounts.firstOrNull { it.id == j.accountId }, { vm.retry(j.id) }, { vm.skip(j.id) }, { shareIntent(ctx, j.text.ifBlank { j.title + "\n" + j.url }) }) }
             }
             else -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("نشر المقالات القديمة تلقائياً", style = MaterialTheme.typography.titleMedium, color = c.text)
+                Text("يضيف التطبيق وحده للطابور المقالات المنشورة سابقاً التي لم تُسجَّل لكل حساب، من الأقدم إلى الأحدث، بقدر السقف اليومي للحساب وداخل نافذة ساعاته. السجل محفوظ لكل (مقال، حساب) فلا يتكرر منشور.", style = MaterialTheme.typography.bodyMedium, color = c.muted)
+                AppChip(if (backfill) "مفعّل (اضغط للإيقاف)" else "متوقف (اضغط للتفعيل)", backfill, { vm.setBackfill(!backfill) })
+                Text("المواقع المشمولة بالمشاركة", style = MaterialTheme.typography.titleMedium, color = c.text)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    siteList.forEach { s -> AppChip(s.name + if (s.share) ": مفعّل" else ": متوقف", s.share, { vm.setSiteShare(s.id, !s.share) }) }
+                }
                 Text("وصفات الواجهة (محددات الأزرار) بيانات قابلة للتحديث دون إصدار نسخة جديدة: ضع الملف في social/recipes.json على فرع app-backup بمستودع GitHub المضبوط ثم اضغط تحديث.", style = MaterialTheme.typography.bodyMedium, color = c.muted)
                 PrimaryButton("تحديث الوصفات من GitHub", Icons.Refresh, { vm.updateRecipes() }, Modifier.fillMaxWidth(), enabled = !busy)
                 AppChip("العودة للوصفات المضمّنة", false, { vm.resetRecipes() })
@@ -192,27 +247,74 @@ fun SocialScreen(onBack: () -> Unit, onLogin: (String) -> Unit, vm: SocialViewMo
         adding = false
         vm.add(p, l, e, s) { id -> if (Platforms.of(p)?.isWeb == true) onLogin(id) }
     }
+    creds?.let { a -> CredsSheet(a, { creds = null }) { e, s -> vm.saveCreds(a, e, s); creds = null } }
     editing?.let { a -> EditAccountSheet(a, { editing = null }, { vm.update(it); editing = null }, { vm.remove(a.id); editing = null }) }
 }
 
 @Composable
-private fun AccountCard(a: SocialAccountEntity, busy: Boolean, onCheck: () -> Unit, onLogin: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit) {
+private fun AccountCard(a: SocialAccountEntity, busy: Boolean, onCheck: () -> Unit, onLogin: () -> Unit, onToggle: () -> Unit, onEdit: () -> Unit, onTest: () -> Unit, onCreds: () -> Unit) {
     val c = AppTheme.colors
     val spec = Platforms.of(a.platform)
+    var confirmTest by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(c.surface, RoundedCornerShape(16.dp)).border(1.dp, c.line, RoundedCornerShape(16.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(a.label, style = MaterialTheme.typography.titleMedium, color = c.text)
                 Text("${spec?.name.orEmpty()} · ${if (spec?.isWeb == true) "جلسة دائمة" else "رمز دائم"} · سقف ${a.dailyCap}/يوم · فاصل ${a.gapMin} د", style = MaterialTheme.typography.bodySmall, color = c.muted)
             }
-            Text(if (!a.enabled) "معطّل" else accStatus(a.status), style = MaterialTheme.typography.labelLarge, color = if (a.enabled && a.status == "ok") c.text else c.red)
+            Text(if (!a.enabled) "معطّل" else accStatus(a.status, spec?.isWeb == true), style = MaterialTheme.typography.labelLarge, color = if (a.enabled && a.status == "ok") c.text else c.red)
         }
         if (a.statusNote.isNotBlank()) Text(a.statusNote, style = MaterialTheme.typography.bodySmall, color = c.muted)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (spec?.isWeb == true) AppChip(if (a.status == "ok") "إعادة تسجيل الدخول" else "تسجيل الدخول", a.status != "ok", onLogin)
+            if (spec?.isWeb != true) AppChip("تعديل البيانات", a.status != "ok", onCreds)
             AppChip("فحص الحساب", false, { if (!busy) onCheck() })
+            AppChip(if (confirmTest) "تأكيد: انشر الآن فعلاً" else "نشر تجريبي", confirmTest, { if (busy) Unit else if (confirmTest) { confirmTest = false; onTest() } else confirmTest = true })
             AppChip(if (a.enabled) "تعطيل" else "تفعيل", false, onToggle)
             AppChip("إعدادات", false, onEdit)
+        }
+    }
+}
+
+@Composable
+private fun ArticlesTab(items: List<ShareCandidate>, accounts: List<SocialAccountEntity>, marks: List<JobMark>, busy: Boolean, onShare: (Long) -> Unit, modifier: Modifier) {
+    val c = AppTheme.colors
+    val byArticle = marks.groupBy { it.articleId }
+    LazyColumn(modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (items.isEmpty()) item { Text("تظهر هنا المقالات المنشورة برابط عام، وحالة مشاركة كل منها على كل حساب.", style = MaterialTheme.typography.bodyMedium, color = c.muted) }
+        items(items, key = { it.id }) { a ->
+            val m = byArticle[a.id].orEmpty().associateBy { it.accountId }
+            val open = accounts.any { it.enabled && m[it.id]?.status.let { s -> s == null || s == "failed" || s == "skipped" || s == "needs_you" } }
+            Column(Modifier.fillMaxWidth().background(c.surface, RoundedCornerShape(14.dp)).border(1.dp, c.line, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(a.title, style = MaterialTheme.typography.bodyLarge, color = c.text, maxLines = 2)
+                accounts.forEach { ac -> Text(ac.label + ": " + (m[ac.id]?.status?.let(::statusLabel) ?: "لم تُشارك"), style = MaterialTheme.typography.bodySmall, color = if (m[ac.id]?.status == "done") c.text else c.muted) }
+                if (open) AppChip("شارك الآن", false, { if (!busy) onShare(a.id) })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CredsSheet(a: SocialAccountEntity, onClose: () -> Unit, onSave: (Map<String, String>, String) -> Unit) {
+    val c = AppTheme.colors
+    val tg = a.platform == "telegram"
+    var f1 by remember { mutableStateOf(if (tg) "" else extraVal(a, "handle")) }
+    var f2 by remember { mutableStateOf(if (tg) extraVal(a, "chat") else "") }
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.bg) {
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("بيانات الحساب", style = MaterialTheme.typography.titleLarge, color = c.text)
+            if (tg) {
+                Input("توكن البوت (اتركه فارغاً للإبقاء على المحفوظ)", f1, { f1 = it }, secret = true)
+                Input("معرّف القناة أو المحادثة (@channel أو رقم)", f2, { f2 = it })
+                Text("للقناة: أضف البوت مشرفاً بصلاحية نشر الرسائل. للمحادثة الخاصة: افتح البوت واضغط Start أولاً.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+            } else {
+                Input("المعرّف (name.bsky.social)", f1, { f1 = it })
+                Input("كلمة مرور التطبيق (اتركها فارغة للإبقاء)", f2, { f2 = it }, secret = true)
+            }
+            PrimaryButton("حفظ وفحص", Icons.Check, {
+                if (tg) onSave(mapOf("chat" to f2), f1) else onSave(mapOf("handle" to f1.removePrefix("@")), f2)
+            }, Modifier.fillMaxWidth())
         }
     }
 }
@@ -325,6 +427,7 @@ fun SocialLoginScreen(accountId: String, onDone: () -> Unit, vm: SocialViewModel
             Text(a?.label.orEmpty(), style = MaterialTheme.typography.titleMedium, color = c.text)
         }
         if (a == null) return@Column
+        Text("سجّل الدخول كالمعتاد (قد يطلب رمزاً أو تأكيداً). حين يظهر حسابك اضغط الزر أسفل الصفحة لحفظ الجلسة.", Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = c.muted)
         val url = Platforms.of(a.platform)?.loginUrl.orEmpty()
         var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
         DisposableEffect(Unit) { onDispose { web?.destroy(); web = null } }

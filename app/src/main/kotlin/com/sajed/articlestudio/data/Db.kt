@@ -42,6 +42,12 @@ interface ArticleDao {
     @Query("SELECT id FROM articles WHERE remote_url != '' AND status != 'failed' AND id NOT IN (SELECT article_id FROM reviews)")
     suspend fun publishedWithoutReview(): List<Long>
 
+    @Query("SELECT id, title, site_id, remote_url FROM articles WHERE remote_url LIKE 'http%' AND status NOT IN ('failed','duplicate') ORDER BY job_id ASC, idx ASC")
+    suspend fun shareCandidates(): List<ShareCandidate>
+
+    @Query("SELECT id, title, site_id, remote_url FROM articles WHERE remote_url LIKE 'http%' AND status NOT IN ('failed','duplicate') ORDER BY job_id DESC, idx DESC LIMIT 300")
+    fun observeShareable(): Flow<List<ShareCandidate>>
+
     @Query("SELECT * FROM articles WHERE status = 'exported' AND remote_url = '' AND site_id = :siteId ORDER BY job_id ASC, idx ASC")
     suspend fun unpublished(siteId: String): List<ArticleEntity>
 
