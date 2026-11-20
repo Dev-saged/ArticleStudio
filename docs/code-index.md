@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 134 ملفاً · 15385 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: package-lock.json 544 · 6.json 542 · Sites.kt 449 · Social.kt 441 · ShareTest.kt 376 · HomeScreen.kt 342 · Export.kt 338 · 5.json 322
+> 137 ملفاً · 16145 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: 7.json 549 · package-lock.json 544 · 6.json 542 · Sites.kt 449 · ShareTest.kt 416 · HomeScreen.kt 342 · Export.kt 338 · 5.json 322
 
 ### ./
 - CLAUDE.md (44)
@@ -28,6 +28,7 @@
 - 4.json (209)
 - 5.json (322)
 - 6.json (542)
+- 7.json (549)
 ### app/src/main/
 - AndroidManifest.xml (46)
 ### app/src/main/assets/
@@ -40,12 +41,12 @@
 - BrandConfig.kt (40): BrandConfig
 - MainActivity.kt (45): MainActivity
 ### app/src/main/kotlin/com/sajed/articlestudio/data/
-- Db.kt (172): ArticleRow, ArticleDao, ReviewDao, JobDao, Migrations, AppDb
+- Db.kt (177): ArticleRow, ArticleDao, ReviewDao, JobDao, Migrations, AppDb
 - Entities.kt (64): ArticleEntity, JobEntity, ReviewEntity
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (66): SecretException, SecretStore
-- SocialEntities.kt (131): SocialAccountEntity, ShareJobEntity, SocialDao, JobMark, ShareCandidate
+- SocialEntities.kt (138): SocialAccountEntity, ShareJobEntity, SocialDao, JobMark, ShareCandidate
 - Stores.kt (81): GenSettings, Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
 - Modules.kt (31): DataModule
@@ -92,9 +93,9 @@
 - Recipes.kt (72): RecipeRules, RecipeStore
 - ShareMedia.kt (64): MediaSource, MediaRules, ShareMedia
 - ShareRunner.kt (174): HookSource, ShareWriter, ShareNotifier, ShareRunner, WebSessionPublisher
-- ShareStore.kt (130): ShareStore
+- ShareStore.kt (155): ShareStore
 - ShareText.kt (104): ShareText, ShareRules
-- ShareWorker.kt (64): ShareScheduler, ShareEntry, ShareWorker
+- ShareWorker.kt (72): ShareScheduler, ShareEntry, ShareWorker
 - SocialModule.kt (22): SocialModule
 - WebAutomator.kt (174): AutoOutcome, WebAutomator
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/
@@ -117,7 +118,9 @@
 - Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (449): SiteStats, SiteForms, SitesViewModel, SitesScreen
-- Social.kt (441): SocialViewModel, SocialScreen, SocialLoginScreen
+- Social.kt (271): SocialViewModel, shareIntent, jobStatusLabel, accStatus, extraVal, SocialScreen, SocialLoginScreen
+- SocialQueue.kt (120): ArticlesTab, QueueTab, JobRow
+- SocialSheets.kt (165): AccountCard, CredsSheet, SocialInput, AddAccountSheet, EditAccountSheet
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -138,7 +141,7 @@
 - file_paths.xml (6)
 ### app/src/test/kotlin/com/sajed/articlestudio/
 - CoreTest.kt (39): CoreTest
-- MigrationTest.kt (70): MigrationTest
+- MigrationTest.kt (79): MigrationTest
 ### app/src/test/kotlin/com/sajed/articlestudio/engine/
 - AutoRunTest.kt (40): AutoRunTest
 - EngineTest.kt (83): EngineTest
@@ -158,10 +161,10 @@
 - SiteTest.kt (94): SiteTest
 - V3Test.kt (114): V3Test
 ### app/src/test/kotlin/com/sajed/articlestudio/social/
-- ShareTest.kt (376): ShareTest
+- ShareTest.kt (416): ShareTest
 ### docs/
 - publishing.md (20)
-- repo-map.md (50)
+- repo-map.md (52)
 ### tools/
 - repomap.py (146): files, symbols, build, main
 ### tools/media/
