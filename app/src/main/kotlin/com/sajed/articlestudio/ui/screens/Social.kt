@@ -7,20 +7,14 @@ import android.content.Intent
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,7 +48,6 @@ import com.sajed.articlestudio.social.ShareRunner
 import com.sajed.articlestudio.social.ShareStore
 import com.sajed.articlestudio.social.WebAutomator
 import com.sajed.articlestudio.social.WebSessionPublisher
-import com.sajed.articlestudio.ui.AppChip
 import com.sajed.articlestudio.ui.IconBtn
 import com.sajed.articlestudio.ui.PrimaryButton
 import com.sajed.articlestudio.ui.icons.Icons
@@ -114,6 +106,9 @@ class SocialViewModel @Inject constructor(
     }
     fun stopForced(platform: String) = viewModelScope.launch { store.stopForced(platform); _msg.value = "عادت المنشورات لقواعد الحساب" }
     fun skip(id: Long) = viewModelScope.launch { store.skip(id) }
+    fun setText(id: Long, text: String) = viewModelScope.launch { store.setText(id, text); _msg.value = "حُفظ النص" }
+    fun clearMsg() { _msg.value = "" }
+    fun page(platform: String, tab: Int, page: Int) = store.page(platform, tab, page)
     fun runNow() = run { val n = runner.tick(); "عولجت $n مهمة" }
 
     fun check(a: SocialAccountEntity) = run {
@@ -161,7 +156,7 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    fun newWebView(a: SocialAccountEntity, context: Context) = automator.newWebView(context, automator.profileName(a.id))
+    fun newWebView(a: SocialAccountEntity, context: Context) = automator.newWebView(context, automator.profileName(a.id), Platforms.of(a.platform)?.desktop == true)
     suspend fun account(id: String) = dao.account(id)
 
     fun updateRecipes() = run {
@@ -173,74 +168,7 @@ class SocialViewModel @Inject constructor(
 
 internal fun shareIntent(c: Context, text: String) = c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "مشاركة يدوية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
-internal fun jobStatusLabel(s: String) = when (s) { "pending" -> "بالانتظار"; "running" -> "قيد الإرسال"; "done" -> "تمّت"; "failed" -> "فشلت"; "needs_you" -> "تحتاج تدخلك"; "skipped" -> "تُخطّيت"; else -> s }
-internal fun accStatus(s: String, web: Boolean) = when (s) { "ok" -> "جاهز"; "needs_login" -> if (web) "يلزم الدخول" else "البيانات غير صالحة"; "attention" -> "يحتاج ضبطاً"; "new" -> "لم يُفحص"; else -> s }
 internal fun extraVal(a: SocialAccountEntity, k: String) = runCatching { AppJson.parseToJsonElement(a.extra).jsonObject[k]?.jsonPrimitive?.contentOrNull.orEmpty() }.getOrDefault("")
-
-@Composable
-fun SocialScreen(onBack: () -> Unit, onLogin: (String) -> Unit, vm: SocialViewModel = hiltViewModel()) {
-    val c = AppTheme.colors
-    val ctx = LocalContext.current
-    val accounts by vm.accounts.collectAsStateWithLifecycle(emptyList())
-    val jobs by vm.jobs.collectAsStateWithLifecycle(emptyList())
-    val msg by vm.msg.collectAsStateWithLifecycle()
-    val busy by vm.busy.collectAsStateWithLifecycle()
-    var tab by remember { mutableStateOf(0) }
-    var adding by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<SocialAccountEntity?>(null) }
-    var creds by remember { mutableStateOf<SocialAccountEntity?>(null) }
-    val shareable by vm.shareable.collectAsStateWithLifecycle(emptyList())
-    val gaps by vm.gaps.collectAsStateWithLifecycle()
-    val marks by vm.marks.collectAsStateWithLifecycle(emptyList())
-    val backfill by vm.backfill.collectAsStateWithLifecycle()
-    val siteList by vm.siteList.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().background(c.bg).statusBarsPadding()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconBtn(Icons.Back, "رجوع", onBack)
-            Text("مشاركة المقالات", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = c.text)
-            IconBtn(Icons.Plus, "إضافة حساب", { adding = true })
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppChip("الحسابات (${accounts.size})", tab == 0, { tab = 0 })
-            AppChip("المقالات (${shareable.size})", tab == 1, { tab = 1 })
-            AppChip("الطابور (${jobs.count { it.status == "pending" || it.status == "needs_you" }})", tab == 2, { tab = 2 })
-            AppChip("الإعدادات", tab == 3, { tab = 3 })
-        }
-        val dayStart = remember(jobs) { java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }
-        Text("بالانتظار ${jobs.count { it.status == "pending" }} · تحتاج تدخلك ${jobs.count { it.status == "needs_you" || it.status == "failed" }} · نُشرت اليوم ${jobs.count { it.status == "done" && it.doneAt >= dayStart }}",
-            Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge, color = c.muted)
-        if (msg.isNotEmpty()) Text(msg, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = c.text)
-        when (tab) {
-            0 -> LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (accounts.isEmpty()) item { Text("أضف حساباً: تيليغرام وبلوسكي برمز دائم، وفيسبوك وX وثريدز ولينكدإن بجلسة دخول تُحفظ داخل التطبيق.", style = MaterialTheme.typography.bodyMedium, color = c.muted) }
-                items(accounts, key = { it.id }) { a -> AccountCard(a, busy, { vm.check(a) }, { onLogin(a.id) }, { vm.toggle(a) }, { editing = a }, { vm.testPost(a) }, { creds = a }) }
-                item { Text("المشاركة التلقائية مفعّلة لكل موقع افتراضياً (تغييرها من تبويب الإعدادات). المسودات لا تُشارك لأن رابطها غير عام.", style = MaterialTheme.typography.bodySmall, color = c.muted) }
-            }
-            1 -> ArticlesTab(shareable, accounts, marks, busy, { vm.shareNow(it) }, Modifier.weight(1f))
-            2 -> QueueTab(jobs, accounts, gaps, busy, { vm.runNow() }, { p, m -> vm.setGap(p, m) }, { vm.publishAll(it) }, { vm.stopForced(it) }, { vm.publishNow(it) }, { vm.skip(it) },
-                { j -> shareIntent(ctx, j.text.ifBlank { j.title + "\n" + j.url }) }, Modifier.weight(1f))
-            else -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("نشر المقالات القديمة تلقائياً", style = MaterialTheme.typography.titleMedium, color = c.text)
-                Text("يضيف التطبيق وحده للطابور المقالات المنشورة سابقاً التي لم تُسجَّل لكل حساب، من الأقدم إلى الأحدث، بقدر السقف اليومي للحساب وداخل نافذة ساعاته. السجل محفوظ لكل (مقال، حساب) فلا يتكرر منشور.", style = MaterialTheme.typography.bodyMedium, color = c.muted)
-                AppChip(if (backfill) "مفعّل (اضغط للإيقاف)" else "متوقف (اضغط للتفعيل)", backfill, { vm.setBackfill(!backfill) })
-                Text("المواقع المشمولة بالمشاركة", style = MaterialTheme.typography.titleMedium, color = c.text)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    siteList.forEach { s -> AppChip(s.name + if (s.share) ": مفعّل" else ": متوقف", s.share, { vm.setSiteShare(s.id, !s.share) }) }
-                }
-                Text("وصفات الواجهة (محددات الأزرار) بيانات قابلة للتحديث دون إصدار نسخة جديدة: ضع الملف في social/recipes.json على فرع app-backup بمستودع GitHub المضبوط ثم اضغط تحديث.", style = MaterialTheme.typography.bodyMedium, color = c.muted)
-                PrimaryButton("تحديث الوصفات من GitHub", Icons.Refresh, { vm.updateRecipes() }, Modifier.fillMaxWidth(), enabled = !busy)
-                AppChip("العودة للوصفات المضمّنة", false, { vm.resetRecipes() })
-                if (!vm.multiProfile) Text("هذا الجهاز لا يدعم فصل الجلسات: يُسمح بحساب ويب واحد لكل منصة.", style = MaterialTheme.typography.bodySmall, color = c.red)
-            }
-        }
-    }
-    if (adding) AddAccountSheet({ adding = false }) { p, l, e, s ->
-        adding = false
-        vm.add(p, l, e, s) { id -> if (Platforms.of(p)?.isWeb == true) onLogin(id) }
-    }
-    creds?.let { a -> CredsSheet(a, { creds = null }) { e, s -> vm.saveCreds(a, e, s); creds = null } }
-    editing?.let { a -> EditAccountSheet(a, { editing = null }, { vm.update(it); editing = null }, { vm.remove(a.id); editing = null }) }
-}
 
 @Composable
 fun SocialLoginScreen(accountId: String, onDone: () -> Unit, vm: SocialViewModel = hiltViewModel()) {
