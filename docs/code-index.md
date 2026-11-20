@@ -4,7 +4,7 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 140 ملفاً · 16306 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> 145 ملفاً · 16725 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
 > الأكبر: 7.json 549 · package-lock.json 544 · 6.json 542 · Sites.kt 449 · ShareTest.kt 416 · HomeScreen.kt 342 · Export.kt 338 · 5.json 322
 
 ### ./
@@ -165,6 +165,12 @@
 ### docs/
 - publishing.md (20)
 - repo-map.md (52)
+### docs/design/ui-c/
+- b1.html (79)
+- b2.html (91)
+- b3.html (96)
+- b4.html (84)
+- style.css (69)
 ### docs/design/ui-v2/
 - a.html (55)
 - b.html (58)
