@@ -1,16 +1,44 @@
 {
-  "version": 1,
+  "version": 2,
   "platforms": {
     "x": {
       "variants": [
         {
           "name": "intent",
           "url": "https://x.com/intent/post?text={text_enc}",
-          "login": { "urlRegex": "/i/flow/login|/login", "selectors": ["input[name=password]"] },
+          "login": {
+            "urlRegex": "/i/flow/login|/login",
+            "selectors": [
+              "input[name=password]"
+            ]
+          },
           "steps": [
-            { "op": "type", "name": "محرر المنشور", "sel": ["[data-testid=tweetTextarea_0]", "div[role=textbox]"], "value": "{text}", "ifEmpty": true, "ms": 25000 },
-            { "op": "sleep", "ms": 1200 },
-            { "op": "click", "name": "زر النشر", "sel": ["[data-testid=tweetButton]", "[data-testid=tweetButtonInline]"], "text": "^(Post|Tweet|نشر)$", "final": true, "ms": 15000 }
+            {
+              "op": "type",
+              "name": "محرر المنشور",
+              "sel": [
+                "[data-testid=tweetTextarea_0]",
+                "div[role=textbox]"
+              ],
+              "value": "{text}",
+              "ifEmpty": true,
+              "ms": 25000
+            },
+            {
+              "op": "sleep",
+              "ms": 1200
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                "[data-testid=tweetButton]",
+                "[data-testid=tweetButtonInline]"
+              ],
+              "text": "^(Post|Tweet|نشر)$",
+              "final": true,
+              "ms": 15000
+            }
           ]
         }
       ]
@@ -20,11 +48,36 @@
         {
           "name": "intent",
           "url": "https://www.threads.com/intent/post?text={text_enc}",
-          "login": { "urlRegex": "/login", "selectors": ["input[type=password]"] },
+          "login": {
+            "urlRegex": "/login",
+            "selectors": [
+              "input[type=password]"
+            ]
+          },
           "steps": [
-            { "op": "type", "name": "محرر المنشور", "sel": ["div[contenteditable=true]", "div[role=textbox]", "textarea"], "value": "{text}", "ifEmpty": true, "ms": 25000 },
-            { "op": "sleep", "ms": 1000 },
-            { "op": "click", "name": "زر النشر", "text": "^(Post|نشر)$", "final": true, "ms": 15000 }
+            {
+              "op": "type",
+              "name": "محرر المنشور",
+              "sel": [
+                "div[contenteditable=true]",
+                "div[role=textbox]",
+                "textarea"
+              ],
+              "value": "{text}",
+              "ifEmpty": true,
+              "ms": 25000
+            },
+            {
+              "op": "sleep",
+              "ms": 1000
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "text": "^(Post|نشر)$",
+              "final": true,
+              "ms": 15000
+            }
           ]
         }
       ]
@@ -34,11 +87,38 @@
         {
           "name": "feed-share",
           "url": "https://www.linkedin.com/feed/?shareActive=true&text={text_enc}",
-          "login": { "urlRegex": "/login|/uas/|/checkpoint", "selectors": ["input[name=session_password]"] },
+          "login": {
+            "urlRegex": "/login|/uas/|/checkpoint",
+            "selectors": [
+              "input[name=session_password]"
+            ]
+          },
           "steps": [
-            { "op": "type", "name": "محرر المنشور", "sel": [".ql-editor[contenteditable=true]", "div[role=textbox]"], "value": "{text}", "ifEmpty": true, "ms": 30000 },
-            { "op": "sleep", "ms": 1200 },
-            { "op": "click", "name": "زر النشر", "sel": [".share-actions__primary-action"], "text": "^(Post|نشر)$", "final": true, "ms": 15000 }
+            {
+              "op": "type",
+              "name": "محرر المنشور",
+              "sel": [
+                ".ql-editor[contenteditable=true]",
+                "div[role=textbox]"
+              ],
+              "value": "{text}",
+              "ifEmpty": true,
+              "ms": 30000
+            },
+            {
+              "op": "sleep",
+              "ms": 1200
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                ".share-actions__primary-action"
+              ],
+              "text": "^(Post|نشر)$",
+              "final": true,
+              "ms": 15000
+            }
           ]
         }
       ]
@@ -48,21 +128,173 @@
         {
           "name": "mobile-sharer",
           "url": "https://m.facebook.com/sharer.php?u={url_enc}",
-          "login": { "urlRegex": "/login|/checkpoint|/recover", "selectors": ["input[name=pass]"] },
+          "login": {
+            "urlRegex": "/login|/checkpoint|/recover",
+            "selectors": [
+              "input[name=pass]"
+            ]
+          },
           "steps": [
-            { "op": "type", "name": "نص المشاركة", "sel": ["textarea[name=xc_message]", "textarea", "[role=textbox]", "[contenteditable=true]"], "value": "{hook}", "ifEmpty": true, "ms": 25000 },
-            { "op": "sleep", "ms": 1200 },
-            { "op": "click", "name": "زر النشر", "sel": ["input[name=share]", "button[name=share]"], "text": "^(Post|Share|Share now|Post to Facebook|نشر|مشاركة|مشاركة الآن)$", "final": true, "ms": 15000 }
+            {
+              "op": "type",
+              "name": "نص المشاركة",
+              "sel": [
+                "textarea[name=xc_message]",
+                "textarea",
+                "[role=textbox]",
+                "[contenteditable=true]"
+              ],
+              "value": "{hook}",
+              "ifEmpty": true,
+              "ms": 25000
+            },
+            {
+              "op": "sleep",
+              "ms": 1200
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                "input[name=share]",
+                "button[name=share]"
+              ],
+              "text": "^(Post|Share|Share now|Post to Facebook|نشر|مشاركة|مشاركة الآن)$",
+              "final": true,
+              "ms": 15000
+            }
           ]
         },
         {
           "name": "desktop-sharer",
           "url": "https://www.facebook.com/sharer/sharer.php?u={url_enc}",
-          "login": { "urlRegex": "/login|/checkpoint|/recover", "selectors": ["input[name=pass]"] },
+          "login": {
+            "urlRegex": "/login|/checkpoint|/recover",
+            "selectors": [
+              "input[name=pass]"
+            ]
+          },
           "steps": [
-            { "op": "type", "name": "نص المشاركة", "sel": ["div[role=textbox]", "[contenteditable=true]", "textarea"], "value": "{hook}", "ifEmpty": true, "optional": true, "ms": 20000 },
-            { "op": "sleep", "ms": 1000 },
-            { "op": "click", "name": "زر النشر", "sel": ["[aria-label=Post]", "[aria-label=نشر]", "[aria-label='Share now']"], "text": "^(Post|Share now|نشر|مشاركة الآن)$", "final": true, "ms": 15000 }
+            {
+              "op": "type",
+              "name": "نص المشاركة",
+              "sel": [
+                "div[role=textbox]",
+                "[contenteditable=true]",
+                "textarea"
+              ],
+              "value": "{hook}",
+              "ifEmpty": true,
+              "optional": true,
+              "ms": 20000
+            },
+            {
+              "op": "sleep",
+              "ms": 1000
+            },
+            {
+              "op": "click",
+              "name": "زر النشر",
+              "sel": [
+                "[aria-label=Post]",
+                "[aria-label=نشر]",
+                "[aria-label='Share now']"
+              ],
+              "text": "^(Post|Share now|نشر|مشاركة الآن)$",
+              "final": true,
+              "ms": 15000
+            }
+          ]
+        }
+      ]
+    },
+    "instagram": {
+      "variants": [
+        {
+          "name": "web-create",
+          "url": "https://www.instagram.com/",
+          "login": {
+            "urlRegex": "/accounts/login",
+            "selectors": [
+              "input[name=password]"
+            ]
+          },
+          "steps": [
+            {
+              "op": "click",
+              "name": "إغلاق نافذة",
+              "text": "^(Not now|ليس الآن|Not Now)$",
+              "optional": true,
+              "ms": 3000
+            },
+            {
+              "op": "click",
+              "name": "منشور جديد",
+              "sel": [
+                "[aria-label='New post']",
+                "[aria-label='إنشاء']",
+                "[aria-label='Create']",
+                "svg[aria-label='New post']",
+                "a[href='/create/select/']"
+              ],
+              "text": "^(New post|Create|إنشاء|منشور جديد)$",
+              "optional": true,
+              "ms": 15000
+            },
+            {
+              "op": "attach",
+              "name": "رفع الصورة",
+              "sel": [
+                "input[type=file]"
+              ],
+              "ms": 20000
+            },
+            {
+              "op": "sleep",
+              "ms": 2500
+            },
+            {
+              "op": "click",
+              "name": "التالي",
+              "text": "^(Next|التالي)$",
+              "ms": 20000
+            },
+            {
+              "op": "sleep",
+              "ms": 1500
+            },
+            {
+              "op": "click",
+              "name": "التالي 2",
+              "text": "^(Next|التالي)$",
+              "optional": true,
+              "ms": 6000
+            },
+            {
+              "op": "type",
+              "name": "الوصف",
+              "sel": [
+                "textarea[aria-label*='caption' i]",
+                "textarea[placeholder*='caption' i]",
+                "textarea[aria-label*='وصف']",
+                "div[role=textbox][aria-label*='caption' i]",
+                "textarea",
+                "div[role=textbox]"
+              ],
+              "value": "{text}",
+              "ms": 20000
+            },
+            {
+              "op": "sleep",
+              "ms": 1200
+            },
+            {
+              "op": "click",
+              "name": "مشاركة",
+              "text": "^(Share|مشاركة)$",
+              "final": true,
+              "ms": 15000
+            }
           ]
         }
       ]

@@ -40,7 +40,7 @@ test('كل وصفة تحتوي رابطاً وخطوات ونقطة نهاية �
       assert.match(v.url, /^https:\/\//, id);
       assert.ok(v.steps.some((s) => s.op === 'click' && s.final), id + ' بلا نقرة نهائية');
       assert.ok(v.login && (v.login.urlRegex || v.login.selectors), id + ' بلا كشف دخول');
-      for (const s of v.steps) assert.ok(['type', 'click', 'sleep', 'waitGone'].includes(s.op), id + ' op');
+      for (const s of v.steps) assert.ok(['type', 'click', 'sleep', 'waitGone', 'attach'].includes(s.op), id + ' op');
     }
   }
 });
@@ -105,3 +105,23 @@ test('العناصر المخفية لا تُنقر', async () => {
 });
 
 test('استبدال المتغيرات', () => { assert.equal(sub('a={text_enc}&u={url_enc}', vars), 'a=x&u=y'); });
+
+test('إنستغرام: يرفع الصورة في حقل الملف ثم التالي ثم الوصف ثم مشاركة', async () => {
+  const p = page('<input type="file" style="display:none"><button>Next</button><textarea aria-label="Write a caption..."></textarea><button>Share</button>', 'https://www.instagram.com/');
+  const inp = p.w.document.querySelector('input[type=file]');
+  Object.defineProperty(inp, 'files', { writable: true, value: null });
+  p.w.DataTransfer = class { constructor() { this._f = []; this.items = { add: (f) => this._f.push(f) }; } get files() { return this._f; } };
+  let shared = 0; p.w.document.querySelectorAll('button')[1].addEventListener('click', () => shared++);
+  const v = { ...vars, image_b64: Buffer.from('jpegbytes').toString('base64'), image_name: '7.jpg' };
+  const r = await runAndWait(p, fast(recipes.platforms.instagram.variants[0]), v);
+  assert.equal(r.at(-1).s, 'ok'); assert.equal(shared, 1);
+  assert.equal(inp.files.length, 1); assert.equal(inp.files[0].name, '7.jpg');
+  assert.match(p.w.document.querySelector('textarea').value, /عنوان قوي/);
+});
+
+test('إنستغرام: بلا صورة يفشل بوضوح ولا ينقر مشاركة', async () => {
+  const p = page('<input type="file"><button>Next</button><textarea></textarea><button>Share</button>', 'https://www.instagram.com/');
+  Object.defineProperty(p.w.document.querySelector('input'), 'files', { writable: true, value: null });
+  const r = await runAndWait(p, fast(recipes.platforms.instagram.variants[0]), vars);
+  assert.equal(r.at(-1).s, 'fail'); assert.match(r.at(-1).msg, /صورة/); assert.ok(!r.some((x) => x.s === 'clicked_final'));
+});

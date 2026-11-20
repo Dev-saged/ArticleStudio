@@ -115,7 +115,7 @@ class ShareStore @Inject constructor(
     suspend fun update(a: SocialAccountEntity) = dao.upsertAccount(a.copy(
         label = a.label.trim().take(40), dailyCap = a.dailyCap.coerceIn(1, 20), gapMin = a.gapMin.coerceIn(1, 720), winFrom = a.winFrom.coerceIn(0, 24), winTo = a.winTo.coerceIn(0, 24)))
 
-    suspend fun remove(id: String) { dao.deleteJobsOf(id); dao.deleteAccount(id); secrets.put("soc.$id", "") }
+    suspend fun remove(id: String) { dao.deleteJobsOf(id); dao.deleteAccount(id); secrets.put("soc.$id", ""); secrets.put("soc.cookies.$id", "") }
 
     suspend fun markLoggedIn(id: String, now: Long = System.currentTimeMillis()) { dao.markOk(id, now); dao.requeueLogin(id, now) }
 

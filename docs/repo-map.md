@@ -40,6 +40,9 @@
 - مشاركة v0.14.1: تحقق جلسة الويب بالكوكيز (`WebAutomator.hasSession` + `PlatformSpec.cookies`: x auth_token، facebook c_user+xs، threads sessionid، linkedin li_at) لا بفتح صفحة الدخول (كان regex الدخول يطابق رابط الفحص نفسه فتظهر «الجلسة منتهية» دائماً).
 - مشاركة: تيليغرام `tgFail` (401 توكن، 403/400 `rejected` لا `login_required`)، `check` يتحقق من getChat وصلاحية المشرف؛ `ShareStore.catchUp` (قديم غير مسجَّل، الأقدم أولاً ضمن السقف اليومي، مفتاح `prefs social/backfill`)، `shareNow`، `setCredentials`؛ حالة حساب `attention`؛ `SiteConfig.share` افتراضي true.
 
+- مشاركة v0.15.0: خزنة كوكيز مشفرة لكل حساب ويب (`WebAutomator.saveSession/restoreSession`، مفتاح `soc.cookies.<id>`): تُحدَّث عند النجاح وتُستعاد قبل كل فحص/نشر (كوكيز الجلسة غير الدائمة كانت تضيع)؛ `getOrCreateProfile` بدل `getProfile`؛ `resumeTimers` للـWebView المنفصل؛ ظهور صفحة دخول مع وجود الكوكيز يُعاد مرة ثم `ui_changed` (لا يوقف الحساب).
+- إنستغرام: منصة ويب `needsImage` (وصفة `instagram` في recipes.json، عملية `attach` في automation.js ترفع الصورة base64 عبر DataTransfer). `ShareMedia` (غلاف المقال من `…-cover.jpg` في `ArticleEntity.html` ثم og:image) يُنزَّل ويُصغَّر 1080px في `filesDir/share-media/<id>.jpg` ويُحذف بعد 3 أيام (`MediaRules.KEEP_MS`، يُستدعى من `ShareRunner.tick`).
+
 ## Open issues
 - لم تُجرَّب حياً وصفات فيسبوك/X/ثريدز/لينكدإن (محددات تخمينية + `recipe doctor` يسجل أزرار الصفحة عند الفشل).
 - لم يُجرَّب حياً: مصادر الصور المفتاحية وGitHub Models (MockWebServer فقط).
