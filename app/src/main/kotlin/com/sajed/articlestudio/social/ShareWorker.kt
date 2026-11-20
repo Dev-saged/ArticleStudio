@@ -49,7 +49,15 @@ class ShareWorker(private val ctx: Context, p: WorkerParameters) : CoroutineWork
         if (e.shareDao().due(now, 1).isEmpty()) return Result.success()
         runCatching { setForeground(info()) }
         val end = System.currentTimeMillis() + 8 * 60_000L
-        runCatching { while (System.currentTimeMillis() < end && e.shareRunner().tick() > 0) Unit }
+        runCatching {
+            while (System.currentTimeMillis() < end) {
+                val n = e.shareRunner().tick()
+                val next = e.shareDao().nextRunAt() ?: break
+                val wait = (next - System.currentTimeMillis()).coerceAtLeast(0)
+                if ((n == 0 && wait > 2 * 60_000L) || System.currentTimeMillis() + wait >= end) break
+                if (wait > 0) kotlinx.coroutines.delay(wait)
+            }
+        }
         e.shareDao().nextRunAt()?.let { next -> runCatching { ShareScheduler.kick(ctx, (next - System.currentTimeMillis()).coerceAtLeast(60_000L)) } }
         return Result.success()
     }
