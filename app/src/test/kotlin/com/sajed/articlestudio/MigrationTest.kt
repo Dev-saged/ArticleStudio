@@ -66,4 +66,13 @@ class MigrationTest {
         db.execSQL("INSERT INTO share_jobs (article_id, site_id, account_id, platform, url, title, text, status, attempts, run_at, done_at, error, post_url, created_at) VALUES (1,'d','a','x','u','t','','pending',0,1,0,'','',1)")
         db.query("SELECT COUNT(*) FROM share_jobs").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
+
+    @Test fun migrate6To7AddsForcedColumnWithDefault() {
+        helper.createDatabase("t7", 6).use { db ->
+            db.execSQL("INSERT INTO share_jobs (article_id, site_id, account_id, platform, url, title, text, status, attempts, run_at, done_at, error, post_url, created_at) VALUES (1,'d','a','x','u','t','','pending',0,1,0,'','',1)")
+        }
+        val db = helper.runMigrationsAndValidate("t7", 7, true, *Migrations.ALL)
+        db.query("SELECT forced FROM share_jobs").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.close()
+    }
 }

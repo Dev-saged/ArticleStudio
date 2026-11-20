@@ -96,7 +96,7 @@ class ShareRunner(
         if (!acc.enabled) return finish(j, "skipped", "الحساب معطّل", now)
         if (acc.status == "needs_login") return finish(j, "needs_you", "login: سجّل الدخول من صفحة الحساب", now)
 
-        val allowed = ShareRules.allowedAt(now, dao.doneSince(acc.id, dayStart(now)), acc.dailyCap, dao.lastDone(acc.id), acc.gapMin, acc.winFrom, acc.winTo, ::hourOf, dayStart(now))
+        val allowed = if (j.forced) now else ShareRules.allowedAt(now, dao.doneSince(acc.id, dayStart(now)), acc.dailyCap, dao.lastDone(acc.id), acc.gapMin, acc.winFrom, acc.winTo, ::hourOf, dayStart(now))
         if (allowed > now) return dao.updateJob(j.copy(runAt = allowed + Random.nextLong(0, 4 * 60_000L)))
 
         val entity = arts.byId(j.articleId)

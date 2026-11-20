@@ -159,10 +159,15 @@ object Migrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_share_jobs_status_run_at ON share_jobs (status, run_at)")
         }
     }
-    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4, M4_5, M5_6)
+    val M6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE share_jobs ADD COLUMN forced INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+    val ALL: Array<Migration> = arrayOf(M1_2, M2_3, M3_4, M4_5, M5_6, M6_7)
 }
 
-@Database(entities = [ArticleEntity::class, JobEntity::class, ReviewEntity::class, SocialAccountEntity::class, ShareJobEntity::class], version = 6, exportSchema = true)
+@Database(entities = [ArticleEntity::class, JobEntity::class, ReviewEntity::class, SocialAccountEntity::class, ShareJobEntity::class], version = 7, exportSchema = true)
 abstract class AppDb : RoomDatabase() {
     abstract fun articles(): ArticleDao
     abstract fun jobs(): JobDao

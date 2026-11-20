@@ -119,11 +119,36 @@ class ShareStore @Inject constructor(
 
     suspend fun markLoggedIn(id: String, now: Long = System.currentTimeMillis()) { dao.markOk(id, now); dao.requeueLogin(id, now) }
 
-    suspend fun retry(jobId: Long, now: Long = System.currentTimeMillis()) {
-        val j = dao.job(jobId) ?: return
-        dao.updateJob(j.copy(status = "pending", runAt = now, error = "", attempts = 0))
+    suspend fun retry(jobId: Long, now: Long = System.currentTimeMillis()) = publishNow(jobId, now)
+
+    /** ينشر منشوراً الآن متجاوزاً السقف اليومي والفاصل ونافذة الساعات (طلب صريح من المستخدم). */
+    suspend fun publishNow(jobId: Long, now: Long = System.currentTimeMillis()): Boolean {
+        val j = dao.job(jobId) ?: return false
+        if (j.status == "done" || j.status == "running") return false
+        dao.updateJob(j.copy(status = "pending", runAt = now, error = "", attempts = 0, forced = true))
         runCatching { ShareScheduler.kick(ctx, 0) }
+        return true
     }
+
+    private val _gaps = MutableStateFlow(Platforms.all.associate { it.id to prefs.getInt("gap.${it.id}", 1) })
+    /** الفاصل بالدقائق بين منشورين عند «نشر الكل»، لكل منصة. */
+    val gaps: StateFlow<Map<String, Int>> = _gaps.asStateFlow()
+    fun setGap(platform: String, minutes: Int) {
+        val m = minutes.coerceIn(1, 120)
+        prefs.edit().putInt("gap.$platform", m).apply(); _gaps.value = _gaps.value + (platform to m)
+    }
+
+    /** يجدول كل منشورات المنصة غير المنشورة بفاصل ثابت بين كل منشور وتاليه ويبدأ فوراً. يعيد العدد. */
+    suspend fun publishAll(platform: String, gapMin: Int, now: Long = System.currentTimeMillis()): Int {
+        val m = gapMin.coerceIn(1, 120); setGap(platform, m)
+        val list = dao.toPublish(platform)
+        list.forEachIndexed { i, j -> dao.updateJob(j.copy(status = "pending", runAt = now + i * m * 60_000L, error = "", attempts = 0, forced = true)) }
+        if (list.isNotEmpty()) runCatching { ShareScheduler.kick(ctx, 0) }
+        return list.size
+    }
+
+    /** يوقف النشر الفوري لمنصة: ما لم يُنشر يعود لقواعد الحساب (سقف/فاصل/نافذة). */
+    suspend fun stopForced(platform: String) = dao.unforce(platform)
 
     suspend fun skip(jobId: Long) { dao.job(jobId)?.let { dao.updateJob(it.copy(status = "skipped")) } }
 }

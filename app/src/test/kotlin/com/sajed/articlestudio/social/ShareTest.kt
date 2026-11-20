@@ -363,6 +363,46 @@ class ShareTest {
         assertEquals(1, pub.posts.size); assertNull(pub.posts[0].image)
     }
 
+    // الطابور حسب المنصة
+    @Test fun publishNowBypassesCapGapAndWindow() = runBlocking {
+        val id = account(cap = 1, gap = 600); val a1 = article("مقال أول"); val a2 = article("مقال ثان")
+        store.enqueue(a1, "default", url, "مقال أول", null, PubState.Live, now = 0, r = Random(1)); store.enqueue(a2, "default", url, "مقال ثان", null, PubState.Live, now = 0, r = Random(1))
+        db.social().upsertAccount(db.social().account(id)!!.copy(winFrom = 3, winTo = 4))
+        val pub = FakePub(); val r = runner(pub); val t = 10 * 3_600_000L
+        r.tick(t)
+        assertEquals(0, pub.posts.size)
+        val ids = listOf(a1, a2).map { db.social().jobsOfArticle(it).single().id }
+        ids.forEach { assertTrue(store.publishNow(it, now = t)) }
+        r.tick(t + 1)
+        assertEquals(2, pub.posts.size)
+        assertFalse(store.publishNow(ids[0], now = t + 2))
+    }
+
+    @Test fun publishAllSpacesJobsByIntervalAndRemembersIt() = runBlocking {
+        account(cap = 1); val arts = (1..3).map { article("مقال $it") }
+        arts.forEach { store.enqueue(it, "default", url, "مقال", null, PubState.Live, now = 0, r = Random(1)) }
+        assertEquals(3, store.publishAll("telegram", 2, now = 1_000_000))
+        val jobs = arts.map { db.social().jobsOfArticle(it).single() }.sortedBy { it.runAt }
+        assertEquals(listOf(0L, 120_000L, 240_000L), jobs.map { it.runAt - 1_000_000 })
+        assertTrue(jobs.all { it.forced && it.status == "pending" })
+        assertEquals(2, store.gaps.value["telegram"])
+        val pub = FakePub(); val r = runner(pub)
+        assertEquals(1, r.tick(1_000_000)); assertEquals(0, r.tick(1_060_000)); assertEquals(1, r.tick(1_130_000))
+        assertEquals(2, pub.posts.size)
+    }
+
+    @Test fun publishAllIsPerPlatformAndStopForcedRestoresRules() = runBlocking {
+        account("telegram"); store.addAccount("bluesky", "بلو", mapOf("handle" to "h"), "p").also { db.social().markOk(it, 1) }
+        val art = article(); store.enqueue(art, "default", url, "ع", null, PubState.Live, now = 0, r = Random(1))
+        assertEquals(2, db.social().jobsOfArticle(art).size)
+        assertEquals(1, store.publishAll("telegram", 1, now = 5_000))
+        val forced = db.social().jobsOfArticle(art).associateBy { it.platform }
+        assertTrue(forced.getValue("telegram").forced); assertFalse(forced.getValue("bluesky").forced)
+        store.stopForced("telegram")
+        assertFalse(db.social().jobsOfArticle(art).first { it.platform == "telegram" }.forced)
+        assertEquals(0, store.publishAll("instagram", 1))
+    }
+
     // الوصفات
     @Test fun bundledRecipesAreValidAndRemoteOnesAreRestrictedToKnownOps() {
         val f = listOf(File("src/main/assets/social/recipes.json"), File("app/src/main/assets/social/recipes.json")).first { it.exists() }

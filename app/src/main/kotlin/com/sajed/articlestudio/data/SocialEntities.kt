@@ -48,6 +48,7 @@ data class ShareJobEntity(
     val error: String = "",
     @ColumnInfo(name = "post_url") val postUrl: String = "",
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val forced: Boolean = false,
 )
 
 @Dao
@@ -118,6 +119,12 @@ interface SocialDao {
 
     @Query("SELECT article_id AS articleId, account_id AS accountId, status FROM share_jobs")
     fun observeMarks(): Flow<List<JobMark>>
+
+    @Query("SELECT * FROM share_jobs WHERE platform = :platform AND status IN ('pending','needs_you','failed') ORDER BY run_at ASC, id ASC")
+    suspend fun toPublish(platform: String): List<ShareJobEntity>
+
+    @Query("UPDATE share_jobs SET forced = 0 WHERE platform = :platform AND status = 'pending' AND forced = 1")
+    suspend fun unforce(platform: String)
 
     @Query("SELECT * FROM share_jobs WHERE article_id = :articleId")
     suspend fun jobsOfArticle(articleId: Long): List<ShareJobEntity>
