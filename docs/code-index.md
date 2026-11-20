@@ -4,8 +4,8 @@
 
 <!-- repomap:auto:start (tools/repomap.py — لا تعدّل يدوياً) -->
 ## Code index (auto)
-> 145 ملفاً · 16725 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
-> الأكبر: 7.json 549 · package-lock.json 544 · 6.json 542 · Sites.kt 449 · ShareTest.kt 416 · HomeScreen.kt 342 · Export.kt 338 · 5.json 322
+> 149 ملفاً · 17689 سطراً. للتفاصيل: Grep باسم الرمز ثم Read بنطاق أسطر، لا تقرأ الملفات الكبيرة كاملة.
+> الأكبر: 7.json 549 · package-lock.json 544 · 6.json 542 · Sites.kt 449 · ShareTest.kt 416 · recipes.json 412 · Kit.kt 371 · Export.kt 338
 
 ### ./
 - CLAUDE.md (44)
@@ -20,7 +20,7 @@
 - repomap.yml (41)
 - unpack-zip.yml (79)
 ### app/
-- build.gradle.kts (84)
+- build.gradle.kts (89)
 ### app/schemas/com.sajed.articlestudio.data.AppDb/
 - 1.json (139)
 - 2.json (181)
@@ -34,8 +34,8 @@
 ### app/src/main/assets/
 - studio-data.json (1)
 ### app/src/main/assets/social/
-- automation.js (145)
-- recipes.json (303)
+- automation.js (154)
+- recipes.json (412)
 ### app/src/main/kotlin/com/sajed/articlestudio/
 - App.kt (28): App
 - BrandConfig.kt (40): BrandConfig
@@ -46,7 +46,7 @@
 - KeyBackup.kt (154): BackupEntry, BackupGit, Backup, ImportReport, KeyBackup
 - Providers.kt (64): ProviderSpec, ProviderCatalog, ProviderStore
 - SecretStore.kt (66): SecretException, SecretStore
-- SocialEntities.kt (138): SocialAccountEntity, ShareJobEntity, SocialDao, JobMark, ShareCandidate
+- SocialEntities.kt (168): SocialAccountEntity, ShareJobEntity, SocialDao, JobMark, ShareCandidate, PlatformStat, DoneMark
 - Stores.kt (81): GenSettings, Health, HealthStore, History, HistoryStore, GitHubSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/di/
 - Modules.kt (31): DataModule
@@ -93,34 +93,38 @@
 - Recipes.kt (72): RecipeRules, RecipeStore
 - ShareMedia.kt (64): MediaSource, MediaRules, ShareMedia
 - ShareRunner.kt (174): HookSource, ShareWriter, ShareNotifier, ShareRunner, WebSessionPublisher
-- ShareStore.kt (155): ShareStore
+- ShareStore.kt (169): ShareStore
 - ShareText.kt (104): ShareText, ShareRules
 - ShareWorker.kt (72): ShareScheduler, ShareEntry, ShareWorker
 - SocialModule.kt (22): SocialModule
-- WebAutomator.kt (174): AutoOutcome, WebAutomator
+- WebAutomator.kt (183): AutoOutcome, WebAutomator
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/
 - Components.kt (117): Modifier.focusRing, IconBtn, PrimaryButton, AppChip, Panel, LiveBar
 - Motion.kt (55): Modifier.stagger, AmbientBackground
 - Prefs.kt (33): UiPrefs, LiveStatus
 - UpdateCard.kt (93): UpdateCard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/home/
-- HomeScreen.kt (342): HomeScreen
 - HomeViewModel.kt (168): NodeState, NodeUi, BallPass, RowUi, SiteCardUi, HomeUiState, HomeViewModel
-- PitchBoard.kt (145): PitchBoard
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/icons/
-- Icons.kt (55): Icons
+- Icons.kt (78): Icons
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/nav/
-- AppNav.kt (144): AppNav
+- AppNav.kt (177): AppNav
+### app/src/main/kotlin/com/sajed/articlestudio/ui/pipe/
+- Articles.kt (304): ArticleRow.matches, ArticleHubViewModel, ArticlesHub, QualityTag, ArticleLine
+- Home.kt (309): hm, PipeHome, StageSep, Stage, PlatformCard, RunScreen, NeedsScreen
+- Kit.kt (371): platformIcon, Tone, PCard, PTop, PIcon, PRing, PSpark +24
+- More.kt (82): MoreScreen, BackStrip
+- PipeViewModel.kt (80): PlatformSum, NeedItem, Overview, PipeViewModel
+- Platforms.kt (278): PlatformsHub, PlatformPage, PlatformSettings
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/screens/
-- Articles.kt (203): ArticleItem, ArticlesViewModel, ArticlesScreen, EmptyState
+- Articles.kt (75): ArticleItem, ArticlesViewModel
 - Export.kt (338): ExportViewModel, ExportScreen, pubModeLabel
 - Insights.kt (262): InsightsUi, InsightsViewModel, InsightsScreen
 - Providers.kt (279): ProviderUi, ProvidersViewModel, ProvidersScreen
 - Publish.kt (237): GuideStep, PublishGuide, TestUi, PublishViewModel, PublishSheet
 - Sites.kt (449): SiteStats, SiteForms, SitesViewModel, SitesScreen
-- Social.kt (271): SocialViewModel, shareIntent, jobStatusLabel, accStatus, extraVal, SocialScreen, SocialLoginScreen
-- SocialQueue.kt (120): ArticlesTab, QueueTab, JobRow
-- SocialSheets.kt (165): AccountCard, CredsSheet, SocialInput, AddAccountSheet, EditAccountSheet
+- Social.kt (199): SocialViewModel, shareIntent, extraVal, SocialLoginScreen
+- SocialSheets.kt (139): CredsSheet, SocialInput, AddAccountSheet, EditAccountSheet
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/test/
 - SelfTestScreen.kt (116): SelfTestScreen
 ### app/src/main/kotlin/com/sajed/articlestudio/ui/theme/
@@ -162,9 +166,11 @@
 - V3Test.kt (114): V3Test
 ### app/src/test/kotlin/com/sajed/articlestudio/social/
 - ShareTest.kt (416): ShareTest
+### app/src/test/kotlin/com/sajed/articlestudio/ui/
+- PipeLookTest.kt (111): PipeLookTest
 ### docs/
 - publishing.md (20)
-- repo-map.md (52)
+- repo-map.md (58)
 ### docs/design/ui-c/
 - b1.html (79)
 - b2.html (91)
@@ -185,5 +191,5 @@
 ### tools/social-test/
 - package-lock.json (544)
 - package.json (2)
-- recipes.test.js (128): page, sub, run, runAndWait, fast
+- recipes.test.js (152): page, sub, run, runAndWait, fast
 <!-- repomap:auto:end -->
