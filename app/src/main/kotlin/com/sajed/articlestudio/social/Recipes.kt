@@ -16,7 +16,7 @@ import javax.inject.Singleton
 
 /** وصفات الواجهة بيانات فقط (روابط ومحددات وخطوات من قائمة مغلقة)؛ لا تُنفَّذ نصوص JS قادمة من الخارج. */
 object RecipeRules {
-    private val OPS = setOf("type", "click", "sleep", "waitGone")
+    private val OPS = setOf("type", "click", "sleep", "waitGone", "attach")
 
     /** يعيد سبب الرفض أو null إن كانت الوصفة صالحة. */
     fun validate(raw: String): String? {

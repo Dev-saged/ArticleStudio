@@ -65,8 +65,14 @@ class ShareTest {
     }
     @After fun tearDown() { db.close(); server.shutdown() }
 
-    private fun runner(pub: SocialPublisher, hooks: HookSource = object : HookSource { override suspend fun hooks(title: String, desc: String, labels: List<String>) = emptyList<String>() }) =
-        ShareRunner(db.social(), db.articles(), hooks, { pub }, ShareNotifier(ApplicationProvider.getApplicationContext()), RunBus()).also { it.zone = ZoneId.of("UTC"); it.pauseBetweenMs = { 0 } }
+    class FakeMedia(var file: File? = null) : MediaSource {
+        var cleaned = 0L
+        override suspend fun image(articleId: Long, pageUrl: String, html: String) = file
+        override fun clean(now: Long) { cleaned = now }
+    }
+
+    private fun runner(pub: SocialPublisher, hooks: HookSource = object : HookSource { override suspend fun hooks(title: String, desc: String, labels: List<String>) = emptyList<String>() }, media: MediaSource = FakeMedia()) =
+        ShareRunner(db.social(), db.articles(), hooks, { pub }, ShareNotifier(ApplicationProvider.getApplicationContext()), RunBus(), media).also { it.zone = ZoneId.of("UTC"); it.pauseBetweenMs = { 0 } }
 
     private var seq = 0
     private fun article(title: String = "كيف حطم ميسي رقماً قياسياً جديداً في كأس العالم"): Long = runBlocking {
@@ -317,6 +323,44 @@ class ShareTest {
         assertEquals("pending", db.social().jobsOfArticle(art).single().status)
         db.social().jobsOfArticle(art).single().let { db.social().updateJob(it.copy(status = "done")) }
         assertEquals(0, store.shareNow(art, now = 8_000))
+    }
+
+    // الصور وإنستغرام
+    @Test fun mediaRulesFindCoverInHtmlOrOgImageAndExpireAfterThreeDays() {
+        assertEquals("https://cdn.jsdelivr.net/gh/o/r@abc/images/articles/m-cover.jpg", MediaRules.coverFromHtml("""<figure><img src="https://cdn.jsdelivr.net/gh/o/r@abc/images/articles/m-cover.jpg" alt="x"></figure>"""))
+        assertNull(MediaRules.coverFromHtml("<p>بلا صورة</p>"))
+        assertEquals("https://b.example/i.jpg?a=1&b=2", MediaRules.ogImage("""<meta content="https://b.example/i.jpg?a=1&amp;b=2" property="og:image"/>"""))
+        assertEquals("https://b.example/o.jpg", MediaRules.ogImage("""<meta property='og:image' content='https://b.example/o.jpg'>"""))
+        val day = 24 * 3_600_000L
+        assertFalse(MediaRules.isStale(0, 3 * day)); assertTrue(MediaRules.isStale(0, 3 * day + 1))
+    }
+
+    @Test fun instagramCaptionFitsAndKeepsUrl() {
+        val p = Platforms.of("instagram")!!
+        assertTrue(p.needsImage && p.isWeb && p.cookies.contains("sessionid"))
+        val t = ShareText.compose(p, "عنوان طويل ".repeat(300), url, listOf("أخبار", "رياضة", "كأس", "رابعة"))
+        assertTrue(t.length <= 2200 && t.contains(url))
+    }
+
+    @Test fun runnerPassesImageToInstagramAndFailsClearlyWithoutOne() = runBlocking {
+        val acc = db.social().account(account("instagram", extra = emptyMap()))!!
+        val art = article(); store.enqueue(art, "default", url, "ع", null, PubState.Live, now = 0, r = Random(1))
+        val pub = FakePub(); val none = runner(pub, media = FakeMedia(null))
+        none.tick(10 * 60_000L)
+        assertEquals(0, pub.posts.size)
+        db.social().jobsOfArticle(art).single().let { assertEquals("failed", it.status); assertTrue(it.error.contains("صورة")) }
+        store.retry(db.social().jobsOfArticle(art).single().id, now = 11 * 60_000L)
+        val img = File.createTempFile("cover", ".jpg").also { it.writeBytes(ByteArray(2000)) }
+        val media = FakeMedia(img); val ok = runner(pub, media = media)
+        ok.tick(12 * 60_000L)
+        assertEquals(img, pub.posts.single().image); assertEquals(12 * 60_000L, media.cleaned)
+        assertEquals("done", db.social().jobsOfArticle(art).single().status); assertNotNull(acc)
+    }
+
+    @Test fun textPlatformsGetNoImageRequirement() = runBlocking {
+        account(); val art = article(); store.enqueue(art, "default", url, "ع", null, PubState.Live, now = 0, r = Random(1))
+        val pub = FakePub(); runner(pub, media = FakeMedia(null)).tick(10 * 60_000L)
+        assertEquals(1, pub.posts.size); assertNull(pub.posts[0].image)
     }
 
     // الوصفات

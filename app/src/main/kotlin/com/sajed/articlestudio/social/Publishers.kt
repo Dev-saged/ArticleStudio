@@ -28,7 +28,7 @@ class ShareException(val code: String, message: String, val retry: Boolean = fal
 class ShareResult(val postUrl: String = "")
 
 /** text = النص الكامل مع الرابط؛ hook = الصياغة وحدها (لنوافذ المشاركة التي تضيف الرابط بنفسها). */
-class Post(val text: String, val hook: String, val url: String)
+class Post(val text: String, val hook: String, val url: String, val image: java.io.File? = null)
 
 interface SocialPublisher {
     /** يتحقق من صلاحية الحساب دون نشر ويعيد وصفاً قصيراً. */

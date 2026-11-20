@@ -12,6 +12,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.sajed.articlestudio.data.SecretStore
 import com.sajed.articlestudio.engine.AppJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
@@ -33,7 +34,7 @@ class AutoOutcome(val ok: Boolean, val code: String = "", val msg: String = "", 
 
 /** يشغّل صفحات المنصات في WebView مخفي بملف تعريف دائم لكل حساب، فتبقى الجلسة (كوكيز وتخزين) بين التشغيلات. */
 @Singleton
-class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Context) {
+class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Context, private val secrets: SecretStore) {
     private val mutex = Mutex()
     private val main = Handler(Looper.getMainLooper())
 
@@ -63,7 +64,7 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
 
     private fun flush(profile: String) {
         runCatching { CookieManager.getInstance().flush() }
-        if (multiProfile()) runCatching { ProfileStore.getInstance().getProfile(profile)?.cookieManager?.flush() }
+        if (multiProfile()) runCatching { ProfileStore.getInstance().getOrCreateProfile(profile).cookieManager.flush() }
     }
 
     private class Bridge(val done: CompletableDeferred<AutoOutcome>, val clicked: () -> Unit) {
@@ -91,6 +92,7 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
             withContext(Dispatchers.Main) {
                 val v = newWebView(ctx, profile).also { wv = it }
                 v.addJavascriptInterface(Bridge(done) { clickedFinal.set(true) }, "AS")
+                v.onResume(); v.resumeTimers()
                 v.measure(android.view.View.MeasureSpec.makeMeasureSpec(412, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(892, android.view.View.MeasureSpec.EXACTLY))
                 v.layout(0, 0, 412, 892)
                 var started = false
@@ -123,13 +125,48 @@ class WebAutomator @Inject constructor(@ApplicationContext private val ctx: Cont
         withTimeoutOrNull(2_000) { d.await() }.orEmpty().trim('"').replace("\\\"", "\"").take(600)
     }
 
-    /** هل توجد كوكيز جلسة الدخول لهذه المنصة في ملف تعريف الحساب؟ (يقرأ المخزن مباشرة بلا تحميل صفحة). */
-    fun hasSession(profile: String, spec: PlatformSpec): Boolean {
+    private fun cookieManager(profile: String): CookieManager {
+        if (multiProfile()) runCatching { return ProfileStore.getInstance().getOrCreateProfile(profile).cookieManager }
+        return CookieManager.getInstance()
+    }
+
+    private fun vaultKey(accountId: String) = "soc.cookies.$accountId"
+    private fun hasName(raw: String, n: String) = raw.split(";").any { it.trim().startsWith("$n=") && it.trim().length > n.length + 1 }
+
+    /** يحفظ نسخة مشفرة من كوكيز الجلسة (تنجو من تنظيف WebView وكوكيز الجلسة غير الدائمة). */
+    fun saveSession(accountId: String, spec: PlatformSpec) {
+        if (spec.cookies.isEmpty()) return
+        val raw = cookieManager(profileName(accountId)).getCookie(spec.cookieUrl).orEmpty()
+        if (spec.cookies.all { hasName(raw, it) }) secrets.put(vaultKey(accountId), raw)
+    }
+
+    /** يعيد للملف ما ضاع من الكوكيز من النسخة المحفوظة، بصلاحية سنة. */
+    fun restoreSession(accountId: String, spec: PlatformSpec) {
+        val saved = secrets.get(vaultKey(accountId))
+        if (spec.cookies.isEmpty() || saved.isBlank()) return
+        val cm = cookieManager(profileName(accountId))
+        val have = cm.getCookie(spec.cookieUrl).orEmpty()
+        saved.split(";").map { it.trim() }.filter { it.contains('=') }.forEach { kv ->
+            if (!hasName(have, kv.substringBefore('='))) cm.setCookie(spec.cookieUrl, "$kv; Domain=${spec.cookieDomain}; Path=/; Max-Age=31536000; Secure")
+        }
+        cm.flush()
+    }
+
+    fun forgetSession(accountId: String) = secrets.put(vaultKey(accountId), "")
+
+    /** هل توجد جلسة دخول؟ تستعيد النسخة المحفوظة أولاً، وتجددها عند النجاح. */
+    fun hasSession(accountId: String, spec: PlatformSpec): Boolean {
         if (spec.cookies.isEmpty()) return true
-        flush(profile)
-        val cm = (if (multiProfile()) runCatching { ProfileStore.getInstance().getProfile(profile)?.cookieManager }.getOrNull() else null) ?: CookieManager.getInstance()
-        val parts = cm.getCookie(spec.cookieUrl).orEmpty().split(";").map { it.trim() }
-        return spec.cookies.all { n -> parts.any { it.startsWith("$n=") && it.length > n.length + 1 } }
+        restoreSession(accountId, spec)
+        flush(profileName(accountId))
+        val ok = hasAll(accountId, spec)
+        if (ok) saveSession(accountId, spec)
+        return ok
+    }
+
+    private fun hasAll(accountId: String, spec: PlatformSpec): Boolean {
+        val raw = cookieManager(profileName(accountId)).getCookie(spec.cookieUrl).orEmpty()
+        return spec.cookies.all { hasName(raw, it) }
     }
 
     suspend fun pause(ms: Long) = delay(ms)

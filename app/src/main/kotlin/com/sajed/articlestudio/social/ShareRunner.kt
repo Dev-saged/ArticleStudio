@@ -64,7 +64,7 @@ class ShareNotifier @Inject constructor(@ApplicationContext private val ctx: Con
 /** ينفّذ المهام المستحقة: يحترم السقف اليومي والفاصل والنافذة، ويصنّف الأخطاء، ولا يكرر منشوراً غير مؤكد. */
 class ShareRunner(
     private val dao: SocialDao, private val arts: ArticleDao, private val hooks: HookSource,
-    private val publisherFor: (SocialAccountEntity) -> SocialPublisher, private val notifier: ShareNotifier, private val bus: RunBus,
+    private val publisherFor: (SocialAccountEntity) -> SocialPublisher, private val notifier: ShareNotifier, private val bus: RunBus, private val media: MediaSource,
 ) {
     private val lock = Mutex()
     var zone: ZoneId = ZoneId.systemDefault()
@@ -77,6 +77,7 @@ class ShareRunner(
         if (!lock.tryLock()) return 0
         try {
             dao.parkInterrupted()
+            runCatching { media.clean(now) }
             var n = 0
             for (job in dao.due(now, maxJobs)) {
                 if (n > 0 && Platforms.of(job.platform)?.isWeb == true) delay(pauseBetweenMs())
@@ -98,14 +99,16 @@ class ShareRunner(
         val allowed = ShareRules.allowedAt(now, dao.doneSince(acc.id, dayStart(now)), acc.dailyCap, dao.lastDone(acc.id), acc.gapMin, acc.winFrom, acc.winTo, ::hourOf, dayStart(now))
         if (allowed > now) return dao.updateJob(j.copy(runAt = allowed + Random.nextLong(0, 4 * 60_000L)))
 
-        val article = arts.byId(j.articleId)?.let { runCatching { AppJson.decodeFromString(Article.serializer(), it.data) }.getOrNull() }
+        val entity = arts.byId(j.articleId)
+        val article = entity?.let { runCatching { AppJson.decodeFromString(Article.serializer(), it.data) }.getOrNull() }
         val text = j.text.ifBlank {
             val hook = ShareText.pick(hooks.hooks(j.title, article?.desc.orEmpty(), article?.labels.orEmpty()), j.title, j.title + " " + article?.desc.orEmpty())
             ShareText.compose(spec, hook, j.url, article?.labels.orEmpty())
         }
+        val image = if (spec.needsImage) (media.image(j.articleId, j.url, entity?.html.orEmpty()) ?: return finish(j, "failed", "لم أجد صورة المقال لـ${spec.name}", now)) else null
         val running = j.copy(status = "running", attempts = j.attempts + 1, text = text, error = "")
         dao.updateJob(running)
-        val post = Post(text, text.substringBefore("\n\n" + j.url).substringBefore("\n\n").trim(), j.url)
+        val post = Post(text, text.substringBefore("\n\n" + j.url).substringBefore("\n\n").trim(), j.url, image)
         try {
             val r = publisherFor(acc).share(acc, post)
             dao.markOk(acc.id, now)
@@ -118,7 +121,7 @@ class ShareRunner(
             when {
                 e.code == "login_required" -> {
                     dao.setStatus(acc.id, "needs_login", e.message.orEmpty())
-                    finish(running, "needs_you", "login: ${e.message}", now)
+                    finish(running, "needs_you", "login: ${e.message}" + if (e.diag.isNotBlank()) " | ${e.diag}" else "", now)
                     notifier.notify(2000 + acc.id.hashCode().mod(500), "${acc.label}: يلزم تسجيل الدخول", "افتح التطبيق ← مشاركة وسجّل الدخول ليكمل النشر تلقائياً")
                 }
                 e.code == "ui_changed" -> {
@@ -133,27 +136,36 @@ class ShareRunner(
     }
 }
 
-/** ناشر الويب: يجرّب نسخ وصفة المنصة بالترتيب؛ انتهاء الجلسة يوقف فوراً، وتغيّر الواجهة ينتقل للنسخة التالية. */
-@Singleton
+/** ناشر الويب: يجرّب نسخ وصفة المنصة بالترتيب؛ تغيّر الواجهة ينتقل للنسخة التالية؛ ظهور صفحة دخول مع وجود الكوكيز يُعاد مرة قبل الحكم بانتهاء الجلسة. */
 class WebSessionPublisher @Inject constructor(private val automator: WebAutomator, private val recipes: RecipeStore) : SocialPublisher {
     private fun spec(acc: SocialAccountEntity) = Platforms.of(acc.platform) ?: throw ShareException("rejected", "منصة غير معروفة")
 
     override suspend fun check(acc: SocialAccountEntity): String {
-        if (!automator.hasSession(automator.profileName(acc.id), spec(acc))) throw ShareException("login_required", "لم أجد جلسة دخول: سجّل الدخول في الصفحة ثم اضغط «تم تسجيل الدخول»")
+        if (!automator.hasSession(acc.id, spec(acc))) throw ShareException("login_required", "لم أجد جلسة دخول: سجّل الدخول في الصفحة ثم اضغط «تم تسجيل الدخول»")
         return "الجلسة نشطة"
     }
 
     override suspend fun share(acc: SocialAccountEntity, post: Post): ShareResult {
-        if (!automator.hasSession(automator.profileName(acc.id), spec(acc))) throw ShareException("login_required", "الجلسة منتهية")
+        val sp = spec(acc)
+        if (!automator.hasSession(acc.id, sp)) throw ShareException("login_required", "الجلسة منتهية")
         val vs = recipes.variants(acc.platform)
         if (vs.isEmpty()) throw ShareException("rejected", "لا وصفة لهذه المنصة")
-        val vars = mapOf("text" to post.text, "hook" to post.hook, "url" to post.url)
+        if (sp.needsImage && post.image == null) throw ShareException("rejected", "${sp.name} يحتاج صورة ولم أجد صورة للمقال")
+        val vars = HashMap<String, String>().apply {
+            put("text", post.text); put("hook", post.hook); put("url", post.url)
+            post.image?.let { f -> put("image_b64", android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP)); put("image_name", f.name) }
+        }
         var last = AutoOutcome(false, "ui_changed", "لا نسخة ناجحة")
         for (v in vs) {
-            val o = automator.run(automator.profileName(acc.id), v, vars)
-            if (o.ok) return ShareResult()
-            if (o.code == "login_required") throw ShareException("login_required", "الجلسة منتهية")
+            var o = automator.run(automator.profileName(acc.id), v, vars)
+            if (!o.ok && o.code == "login_required" && automator.hasSession(acc.id, sp)) o = automator.run(automator.profileName(acc.id), v, vars)
+            if (o.ok) { automator.saveSession(acc.id, sp); return ShareResult() }
+            if (o.code == "login_required") { last = o; if (!automator.hasSession(acc.id, sp)) break; continue }
             last = o
+        }
+        if (last.code == "login_required") {
+            if (!automator.hasSession(acc.id, sp)) throw ShareException("login_required", "الجلسة منتهية", diag = last.diag)
+            throw ShareException("ui_changed", "ظهرت صفحة دخول رغم أن الجلسة محفوظة؛ جرّب تسجيل الدخول مرة أخرى من الحساب", diag = last.diag)
         }
         if (last.code == "timeout") throw ShareException("network", "انتهت المهلة قبل النشر", retry = true, diag = last.diag)
         throw ShareException("ui_changed", last.msg, diag = last.diag)

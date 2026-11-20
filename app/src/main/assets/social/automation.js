@@ -103,6 +103,22 @@
           if (!gone) return report({ s: 'fail', code: 'ui_changed', msg: 'لم يختفِ العنصر المتوقع ' + (st.name || ''), diag: diag() });
           continue;
         }
+        if (st.op === 'attach') {
+          var inp = null, until = Date.now() + (st.ms || 20000);
+          while (!inp && Date.now() < until) {
+            var ss = [].concat(st.sel || ['input[type=file]']);
+            for (var q = 0; q < ss.length && !inp; q++) { try { inp = document.querySelector(ss[q]); } catch (e) {} }
+            if (!inp) await sleep(250);
+          }
+          if (!inp) { if (st.optional) continue; return report({ s: 'fail', code: 'ui_changed', msg: 'لم أجد حقل رفع الصورة', diag: diag() }); }
+          if (!vars.image_b64) return report({ s: 'fail', code: 'ui_changed', msg: 'لا صورة للمقال', diag: diag() });
+          var bin = atob(vars.image_b64), u8 = new Uint8Array(bin.length);
+          for (var b = 0; b < bin.length; b++) u8[b] = bin.charCodeAt(b);
+          var dt = new DataTransfer(); dt.items.add(new File([u8], vars.image_name || 'cover.jpg', { type: 'image/jpeg' }));
+          inp.files = dt.files;
+          inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+          continue;
+        }
         var el = await waitFor(st, st.ms, st.op === 'click');
         if (!el) {
           if (loggedOut(recipe.login)) return report({ s: 'fail', code: 'login_required', msg: 'الجلسة منتهية', diag: diag() });
